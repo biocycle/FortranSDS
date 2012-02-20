@@ -16,12 +16,9 @@ module SimpleNetCDF
     end type SNCVar
 
     integer, parameter :: SNC_UNLIMITED = NF90_UNLIMITED
-    !integer, parameter :: SNC_BYTE = NF90_BYTE
-    !integer, parameter :: SNC_CHAR = NF90_CHAR
-    !integer, parameter :: SNC_SHORT = NF90_SHORT
-    integer, parameter :: SNC_INT = NF90_INT
-    integer, parameter :: SNC_FLOAT = NF90_FLOAT
-    integer, parameter :: SNC_DOUBLE = NF90_DOUBLE
+    integer, parameter :: SNC_INT       = NF90_INT
+    integer, parameter :: SNC_FLOAT     = NF90_FLOAT
+    integer, parameter :: SNC_DOUBLE    = NF90_DOUBLE
 
     integer, parameter :: READ_MODE = NF90_SHARE
 #ifndef HAVE_NETCDF4
@@ -43,72 +40,6 @@ contains
         snc_open%name = filename
     end function snc_open
 
-    function snc_get_dim(file, dimname)
-        type(SNCFile), intent(in) :: file
-        character(*), intent(in) :: dimname
-        integer :: snc_get_dim
-        integer :: dimid
-        character(700) :: err_msg
-
-        write(err_msg, "('getting id for dimension ''',A,''' in ',A)") trim(dimname), trim(file%name)
-        call snc_handle_error(nf90_inq_dimid(file%ncid, dimname, dimid), err_msg)
-
-        write(err_msg, "('getting length for dimension ''',A,''' in ',A)") trim(dimname), trim(file%name)
-        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, len = snc_get_dim), err_msg)
-    end function snc_get_dim
-
-    function snc_inq_var(file, varname)
-        type(SNCFile), intent(in) :: file
-        character(*), intent(in) :: varname
-        type(SNCVar) :: snc_inq_var
-        character(700) :: err_msg
-        integer :: status, i, dimids(4)
-
-        snc_inq_var%name = varname
-
-        write(err_msg, "('inquiring variable''s id ''',A,''' in ',A)") trim(varname), trim(file%name)
-        status = nf90_inq_varid(file%ncid, varname, snc_inq_var%id)
-        call snc_handle_error(status, err_msg)
-
-        write(err_msg, "('inquiring about variable ''',A,''' in ',A)") trim(varname), trim(file%name)
-        status = nf90_inquire_variable(file%ncid, snc_inq_var%id, &
-            ndims = snc_inq_var%ndims, dimids = dimids)
-        call snc_handle_error(status, err_msg)
-        if (snc_inq_var%ndims > size(dimids)) then
-            print "('Too many dimensions in variable ''',A,''' in ',A)", trim(varname), trim(file%name)
-            stop
-        end if
-
-        do i = 1, snc_inq_var%ndims
-            write(err_msg, "('getting length for dimension ',I1,' of ''',A,''' in ',A)") i, trim(varname), trim(file%name)
-            call snc_handle_error(nf90_inquire_dimension(file%ncid, dimids(i), len = snc_inq_var%dims(i)), err_msg)
-        end do
-    end function snc_inq_var
-
-
-    subroutine snc_get_att(file, var, attname, attvalue)
-        type(SNCFile), intent(in) :: file
-        type(SNCVar), intent(in) :: var
-        character(*), intent(in) :: attname
-        character(*), intent(out) :: attvalue
-        character(800) :: err_msg
-
-        write(err_msg, "('getting attribute ''',A,':',A,''' in ',A)") &
-            trim(var%name), trim(attname), trim(file%name)
-        call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
-    end subroutine snc_get_att
-
-    subroutine snc_read2f(file, var, data)
-       type(SNCFile), intent(in) :: file
-        type(SNCVar), intent(in) :: var
-        real*4, pointer :: data(:,:)
-        character(700) :: err_msg
-
-        allocate(data(var%dims(1), var%dims(2)))
-        write(err_msg, "('reading variable ''',A,''' in ',A)") trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), err_msg)
-    end subroutine snc_read2f
-
     ! Open a NetCDF file for writing
     function snc_create(filename)
         character(*), intent(in) :: filename
@@ -120,6 +51,25 @@ contains
         snc_create%name = filename
     end function snc_create
 
+    ! Returns the size of the given dimension
+    function snc_get_dim(file, dimname)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: dimname
+        integer :: snc_get_dim
+        integer :: dimid
+        character(700) :: err_msg
+
+        write(err_msg, "('getting id for dimension ''',A,''' in ',A)") &
+            trim(dimname), trim(file%name)
+        call snc_handle_error(nf90_inq_dimid(file%ncid, dimname, dimid), err_msg)
+
+        write(err_msg, "('getting length for dimension ''',A,''' in ',A)") &
+            trim(dimname), trim(file%name)
+        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, len = snc_get_dim), err_msg)
+    end function snc_get_dim
+
+    ! Defines a dimension with the given name and size, then returns its id
+    ! for use in defining variables later.
     function snc_def_dim(file, dimname, dimsize)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: dimname
@@ -128,11 +78,49 @@ contains
         integer :: dimid
         character(700) :: err_msg
 
-        write(err_msg, "('defining dimension ''',A,''' = ',I6,'in ',A)") trim(dimname), dimsize, trim(file%name)
+        write(err_msg, "('defining dimension ''',A,''' = ',I6,'in ',A)") &
+            trim(dimname), dimsize, trim(file%name)
         call snc_handle_error(nf90_def_dim(file%ncid, dimname, dimsize, dimid), err_msg)
         snc_def_dim = dimid
     end function snc_def_dim
 
+    ! Looks for the given variable name in the NetCDF file and gets its
+    ! dimensions.
+    function snc_inq_var(file, varname)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: varname
+        type(SNCVar) :: snc_inq_var
+        character(700) :: err_msg
+        integer :: status, i, dimids(4)
+
+        snc_inq_var%name = varname
+
+        write(err_msg, "('inquiring variable''s id ''',A,''' in ',A)") &
+            trim(varname), trim(file%name)
+        status = nf90_inq_varid(file%ncid, varname, snc_inq_var%id)
+        call snc_handle_error(status, err_msg)
+
+        write(err_msg, "('inquiring about variable ''',A,''' in ',A)") &
+            trim(varname), trim(file%name)
+        status = nf90_inquire_variable(file%ncid, snc_inq_var%id, &
+            ndims = snc_inq_var%ndims, dimids = dimids)
+        call snc_handle_error(status, err_msg)
+        if (snc_inq_var%ndims > size(dimids)) then
+            print "('Too many dimensions in variable ''',A,''' in ',A)", &
+                trim(varname), trim(file%name)
+            stop
+        end if
+
+        do i = 1, snc_inq_var%ndims
+            write(err_msg, "('getting length for dimension ',I1,' of ''',A,''' in ',A)") &
+                i, trim(varname), trim(file%name)
+            call snc_handle_error(nf90_inquire_dimension(file%ncid, dimids(i), &
+                len = snc_inq_var%dims(i)), err_msg)
+        end do
+    end function snc_inq_var
+
+    ! Define a variable for the NetCDF file with the given name and type; the
+    ! dimids are the values returned by snc_def_dim.
     function snc_def_var(file, varname, vartype, dimids)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: varname
@@ -146,6 +134,47 @@ contains
         snc_def_var%name = varname
     end function snc_def_var
 
+    ! Read a variable's data into a 2-dimensional array, then return it to
+    ! the user.  The array variable passed in to this subroutine must be of
+    ! type +real*4, pointer+.
+    subroutine snc_read2f(file, var, data)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, pointer :: data(:,:)
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2)))
+        write(err_msg, "('reading variable ''',A,''' in ',A)") trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_read2f
+
+    ! Write the given variable's data to a NetCDF file.  The data is a
+    ! 2-dimensional real*4 array.
+    subroutine snc_write2f(file, var, data)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, intent(in), dimension(:,:) :: data
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d float variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_write2f
+
+    ! Read a character attribute's value from the NetCDF file.
+    subroutine snc_get_att(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        character(*), intent(out) :: attvalue
+        character(800) :: err_msg
+
+        write(err_msg, "('getting attribute ''',A,':',A,''' in ',A)") &
+            trim(var%name), trim(attname), trim(file%name)
+        call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_get_att
+
+    ! Write a character attribute to the NetCDF file.
     subroutine snc_put_att(file, var, attname, attvalue)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -157,6 +186,8 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
     end subroutine snc_put_att
 
+    ! Finish the NetCDF data definition and prepare for reading. Call when
+    ! you are ready to write variables to the file.
     subroutine snc_enddef(file)
         type(SNCFile), intent(in) :: file
         character(550) :: err_msg
@@ -165,16 +196,7 @@ contains
         call snc_handle_error(nf90_enddef(file%ncid), err_msg)
     end subroutine snc_enddef
 
-    subroutine snc_write2f(file, var, data)
-        type(SNCFile), intent(in) :: file
-        type(SNCVar), intent(in) :: var
-        real, intent(in), dimension(:,:) :: data
-        character(700) :: err_msg
-
-        write(err_msg, "('writing 2d float variable ''',A,''' to ',A)") trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), err_msg)
-    end subroutine snc_write2f
-
+    ! Closes the NetCDF file after you are done reading from or writing to it.
     subroutine snc_close(file)
         type(SNCFile), intent(in) :: file
         character(520) :: err_msg
@@ -183,6 +205,9 @@ contains
         call snc_handle_error(nf90_close(file%ncid), err_msg)
     end subroutine snc_close
 
+    ! Check the return status of a NetCDF function.  If there is an error,
+    ! it prints the NetCDF error string, the error message if given, then
+    ! stops the program.
     subroutine snc_handle_error(status, message)
         integer, intent(in) :: status
         character(*), intent(in), optional :: message
