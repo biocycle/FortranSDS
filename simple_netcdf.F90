@@ -26,6 +26,14 @@ module SimpleNetCDF
         module procedure snc_write2i, snc_write2f, snc_write2d
     end interface snc_write2
 
+    interface snc_get_att
+        module procedure snc_get_att_str, snc_get_atti, snc_get_attf, snc_get_attd
+    end interface snc_get_att
+
+    interface snc_put_att
+        module procedure snc_put_att_str, snc_put_atti, snc_put_attf, snc_put_attd
+    end interface snc_put_att
+
     integer, parameter :: SNC_UNLIMITED = NF90_UNLIMITED
     integer, parameter :: SNC_INT       = NF90_INT
     integer, parameter :: SNC_FLOAT     = NF90_FLOAT
@@ -232,29 +240,101 @@ contains
 
 
     ! Read a character attribute's value from the NetCDF file.
-    subroutine snc_get_att(file, var, attname, attvalue)
+    subroutine snc_get_att_str(file, var, attname, attvalue)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         character(*), intent(in) :: attname
         character(*), intent(out) :: attvalue
         character(800) :: err_msg
 
-        write(err_msg, "('getting attribute ''',A,':',A,''' in ',A)") &
+        write(err_msg, "('getting string attribute ''',A,':',A,''' in ',A)") &
             trim(var%name), trim(attname), trim(file%name)
         call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
-    end subroutine snc_get_att
+    end subroutine snc_get_att_str
 
-    ! Write a character attribute to the NetCDF file.
-    subroutine snc_put_att(file, var, attname, attvalue)
+    subroutine snc_get_atti(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        integer, intent(out) :: attvalue(:)
+        character(800) :: err_msg
+
+        write(err_msg, "('getting integer attribute ''',A,':',A,''' in ',A)") &
+            trim(var%name), trim(attname), trim(file%name)
+        call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_get_atti
+
+    subroutine snc_get_attf(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        real*4, intent(out) :: attvalue
+        character(800) :: err_msg
+
+        write(err_msg, "('getting float attribute ''',A,':',A,''' in ',A)") &
+            trim(var%name), trim(attname), trim(file%name)
+        call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_get_attf
+
+    subroutine snc_get_attd(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        real*8, intent(out) :: attvalue
+        character(800) :: err_msg
+
+        write(err_msg, "('getting double attribute ''',A,':',A,''' in ',A)") &
+            trim(var%name), trim(attname), trim(file%name)
+        call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_get_attd
+
+    ! Write an attribute to the NetCDF file.
+    subroutine snc_put_att_str(file, var, attname, attvalue)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         character(*), intent(in) :: attname, attvalue
         character(700) :: err_msg
 
+        write(err_msg, "('creating string attribute ''',A,''' for variable ',A,' in ',A)") &
+            trim(attname), trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_put_att_str
+
+    subroutine snc_put_atti(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        integer, intent(in) :: attvalue
+        character(700) :: err_msg
+
+        write(err_msg, "('creating int attribute ''',A,''' for variable ',A,' in ',A)") &
+            trim(attname), trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_put_atti
+
+    subroutine snc_put_attf(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        real*4, intent(in) :: attvalue
+        character(700) :: err_msg
+
+        write(err_msg, "('creating float attribute ''',A,''' for variable ',A,' in ',A)") &
+            trim(attname), trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
+    end subroutine snc_put_attf
+
+    subroutine snc_put_attd(file, var, attname, attvalue)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        character(*), intent(in) :: attname
+        real*8, intent(in) :: attvalue
+        character(700) :: err_msg
+
         write(err_msg, "('creating attribute ''',A,''' for variable ',A,' in ',A)") &
             trim(attname), trim(var%name), trim(file%name)
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
-    end subroutine snc_put_att
+    end subroutine snc_put_attd
 
 
 

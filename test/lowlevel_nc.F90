@@ -12,6 +12,7 @@ program lowlevel_nc
     integer :: lat_id, lon_id, time_id
     integer :: lat_size, lon_size, time_size
     character(32) :: units
+    real*4 :: datt
 
     t(:,1) = (/1.2, 2.2, 3.2, 4.2/)
     t(:,2) = (/7.4, 7.3, 7.2, 7.1/)
@@ -20,6 +21,8 @@ program lowlevel_nc
     u(:,1) = (/5.5, 6.4, 7.7, 4.5/)
     u(:,2) = (/1.0, 3.68, 7.45, 99.94/)
     u(:,3) = (/2309, 24088, 18773, 10028/)
+
+    datt = 777.66
 
 
     ! CREATE THE FILE
@@ -37,7 +40,7 @@ program lowlevel_nc
     t_var = snc_def_var(file, "t", SNC_FLOAT, (/lon_id, lat_id, time_id/))
     call snc_put_att(file, t_var, "units", "K")
     u_var = snc_def_var(file, "u", SNC_DOUBLE, (/lon_id, lat_id, time_id/))
-    call snc_put_att(file, u_var, "units", "fun")
+    call snc_put_att(file, u_var, "thing", datt)
 
     ! write header, prepare to write data
     call snc_enddef(file)
@@ -80,9 +83,9 @@ program lowlevel_nc
     if (trim(u_var%name) /= "u") stop "didn't copy var name"
     if (u_var%ndims /= 3) stop "wrong number of var dimensions"
 
-    call snc_get_att(file, u_var, "units", units)
-    print *, units
-    if (trim(units) /= "fun") stop "bad units"
+    call snc_get_att(file, u_var, "thing", datt)
+    print *, datt
+    if (datt /= 777.66) stop "bad 'thing' attribute"
 
     call snc_read2(file, u_var, u2)
     print *, "u2 = ", u2
