@@ -15,6 +15,17 @@ module SimpleNetCDF
         integer :: ndims, dims(4)
     end type SNCVar
 
+    ! read 2-dimension variables of type integer, float (real*4)
+    ! or double (real*8).
+    interface snc_read2
+        module procedure snc_read2i, snc_read2f, snc_read2d
+    end interface snc_read2
+
+    ! write 2-dimension variables of type integer, float or double.
+    interface snc_write2
+        module procedure snc_write2i, snc_write2f, snc_write2d
+    end interface snc_write2
+
     integer, parameter :: SNC_UNLIMITED = NF90_UNLIMITED
     integer, parameter :: SNC_INT       = NF90_INT
     integer, parameter :: SNC_FLOAT     = NF90_FLOAT
@@ -51,6 +62,11 @@ contains
         snc_create%name = filename
     end function snc_create
 
+
+
+    ! DIMENSIONS SECTION ---
+
+
     ! Returns the size of the given dimension
     function snc_get_dim(file, dimname)
         type(SNCFile), intent(in) :: file
@@ -83,6 +99,11 @@ contains
         call snc_handle_error(nf90_def_dim(file%ncid, dimname, dimsize, dimid), err_msg)
         snc_def_dim = dimid
     end function snc_def_dim
+
+
+
+    ! VARIABLES SECTION
+
 
     ! Looks for the given variable name in the NetCDF file and gets its
     ! dimensions.
@@ -134,9 +155,19 @@ contains
         snc_def_var%name = varname
     end function snc_def_var
 
-    ! Read a variable's data into a 2-dimensional array, then return it to
-    ! the user.  The array variable passed in to this subroutine must be of
-    ! type +real*4, pointer+.
+    ! Read a variable's data into a 2-dimensional array, then return it to the user.
+    subroutine snc_read2i(file, var, data)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, pointer :: data(:,:)
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2)))
+        write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_read2i
+
     subroutine snc_read2f(file, var, data)
        type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -144,12 +175,35 @@ contains
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2)))
-        write(err_msg, "('reading variable ''',A,''' in ',A)") trim(var%name), trim(file%name)
+        write(err_msg, "('reading 2d float variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
         call snc_handle_error(nf90_get_var(file%ncid, var%id, data), err_msg)
     end subroutine snc_read2f
 
-    ! Write the given variable's data to a NetCDF file.  The data is a
-    ! 2-dimensional real*4 array.
+    subroutine snc_read2d(file, var, data)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, pointer :: data(:,:)
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2)))
+        write(err_msg, "('reading 2d double variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_read2d
+
+    ! Write the given variable's data to a NetCDF file.
+    subroutine snc_write2i(file, var, data)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, intent(in), dimension(:,:) :: data
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_write2i
+
     subroutine snc_write2f(file, var, data)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -160,6 +214,22 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(nf90_put_var(file%ncid, var%id, data), err_msg)
     end subroutine snc_write2f
+
+    subroutine snc_write2d(file, var, data)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, intent(in), dimension(:,:) :: data
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d double variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), err_msg)
+    end subroutine snc_write2d
+
+
+
+    !  ATTRIBUTES SECTION ---
+
 
     ! Read a character attribute's value from the NetCDF file.
     subroutine snc_get_att(file, var, attname, attvalue)
@@ -186,6 +256,8 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), err_msg)
     end subroutine snc_put_att
 
+
+
     ! Finish the NetCDF data definition and prepare for reading. Call when
     ! you are ready to write variables to the file.
     subroutine snc_enddef(file)
@@ -204,6 +276,8 @@ contains
         write(err_msg, "('closing ',A)") trim(file%name)
         call snc_handle_error(nf90_close(file%ncid), err_msg)
     end subroutine snc_close
+
+
 
     ! Check the return status of a NetCDF function.  If there is an error,
     ! it prints the NetCDF error string, the error message if given, then

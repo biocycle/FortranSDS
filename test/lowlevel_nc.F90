@@ -6,9 +6,9 @@ program lowlevel_nc
     integer, parameter :: N_LAT = 3, N_LON = 4
 
     type(SNCFile) :: file
-    type(SNCVar) :: var
-    real*4 :: t(N_LON, N_LAT)
-    real*4, pointer :: t2(:,:)
+    type(SNCVar) :: t_var, u_var
+    real*4 :: t(N_LON, N_LAT), u(N_LON, N_LAT)
+    real*4, pointer :: t2(:,:), u2(:,:)
     integer :: lat_id, lon_id, time_id
     integer :: lat_size, lon_size, time_size
     character(32) :: units
@@ -17,6 +17,9 @@ program lowlevel_nc
     t(:,2) = (/7.4, 7.3, 7.2, 7.1/)
     t(:,3) = (/6.8, 6.9, 6.0, 6.1/)
 
+    u(:,1) = (/5.5, 6.4, 7.7, 4.5/)
+    u(:,2) = (/1.0, 3.68, 7.45, 99.94/)
+    u(:,3) = (/2309, 24088, 18773, 10028/)
 
 
     ! CREATE THE FILE
@@ -30,15 +33,18 @@ program lowlevel_nc
     lon_id  = snc_def_dim(file, "lon", 4)
     time_id = snc_def_dim(file, "time", SNC_UNLIMITED)
 
-    ! define variable and its attributes
-    var = snc_def_var(file, "t", SNC_FLOAT, (/lon_id, lat_id, time_id/))
-    call snc_put_att(file, var, "units", "K")
+    ! define variables and their attributes
+    t_var = snc_def_var(file, "t", SNC_FLOAT, (/lon_id, lat_id, time_id/))
+    call snc_put_att(file, t_var, "units", "K")
+    u_var = snc_def_var(file, "u", SNC_DOUBLE, (/lon_id, lat_id, time_id/))
+    call snc_put_att(file, u_var, "units", "fun")
 
     ! write header, prepare to write data
     call snc_enddef(file)
 
-    ! write variable
-    call snc_write2f(file, var, t)
+    ! write variables
+    call snc_write2(file, t_var, t)
+    call snc_write2(file, u_var, u)
 
     call snc_close(file)
 
@@ -57,17 +63,29 @@ program lowlevel_nc
     if (lon_size /= N_LON) stop "bad lon size"
     if (time_size /= 1) stop "bad time size"
 
-    var = snc_inq_var(file, "t")
-    print *, trim(var%name), var%ndims, var%dims
-    if (trim(var%name) /= "t") stop "didn't copy var name"
-    if (var%ndims /= 3) stop "wrong number of var dimensions"
+    t_var = snc_inq_var(file, "t")
+    print *, trim(t_var%name), t_var%ndims, t_var%dims
+    if (trim(t_var%name) /= "t") stop "didn't copy var name"
+    if (t_var%ndims /= 3) stop "wrong number of var dimensions"
 
-    call snc_get_att(file, var, "units", units)
+    call snc_get_att(file, t_var, "units", units)
     print *, units
     if (trim(units) /= "K") stop "bad units"
 
-    call snc_read2f(file, var, t2)
+    call snc_read2(file, t_var, t2)
     print *, "t2 = ", t2
+
+    u_var = snc_inq_var(file, "u")
+    print *, trim(u_var%name), u_var%ndims, u_var%dims
+    if (trim(u_var%name) /= "u") stop "didn't copy var name"
+    if (u_var%ndims /= 3) stop "wrong number of var dimensions"
+
+    call snc_get_att(file, u_var, "units", units)
+    print *, units
+    if (trim(units) /= "fun") stop "bad units"
+
+    call snc_read2(file, u_var, u2)
+    print *, "u2 = ", u2
 
     call snc_close(file)
 
