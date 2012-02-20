@@ -1,3 +1,5 @@
+# Makefile for Simple SDS
+
 ifeq ($(COMPILER),pgi)
 	F90 = pgf90
 	FFLAGS = -g
@@ -10,6 +12,10 @@ else
 
 	NC_ROOT = /usr/local/netcdf4-gcc
 	HDF_ROOT = /usr/local/hdf5-gcc
+endif
+
+ifeq ($(NC4),true)
+	FFLAGS += -DHAVE_NETCDF4
 endif
 
 FFLAGS += -I$(NC_ROOT)/include

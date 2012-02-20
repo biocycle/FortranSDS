@@ -44,6 +44,7 @@ module SimpleNetCDF
     integer, parameter :: WRITE_MODE = NF90_NOCLOBBER
 #else
     integer, parameter :: WRITE_MODE = IOR(NF90_NOCLOBBER, NF90_HDF5)
+    integer, parameter :: SNC_DEFAULT_DEFLATE = 6
 #endif
 
 contains
@@ -159,7 +160,12 @@ contains
         character(700) :: err_msg
 
         write(err_msg, "('defining variable ''',A,''' in ',A)") trim(varname), trim(file%name)
-        call snc_handle_error(nf90_def_var(file%ncid, varname, vartype, dimids, snc_def_var%id), err_msg)
+        call snc_handle_error( &
+            nf90_def_var(file%ncid, varname, vartype, dimids, snc_def_var%id &
+#ifdef HAVE_NETCDF4
+              , deflate_level = SNC_DEFAULT_DEFLATE &
+#endif
+            ), err_msg)
         snc_def_var%name = varname
     end function snc_def_var
 
