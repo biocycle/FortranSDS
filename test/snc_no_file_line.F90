@@ -1,4 +1,4 @@
-program with_file_line
+program no_file_line
     use SimpleNetcdf
     implicit none
 
@@ -11,4 +11,4 @@ program with_file_line
     dimid = snc_get_dim(file, "some_dim")
 
     print *, dimid
-end program with_file_line
+end program no_file_line
