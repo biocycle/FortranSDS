@@ -46,8 +46,8 @@ program lowlevel_nc
     call snc_enddef(file)
 
     ! write variables
-    call snc_write2(file, t_var, t)
-    call snc_write2(file, u_var, u)
+    call snc_write(file, t_var, t)
+    call snc_write(file, u_var, u)
 
     call snc_close(file)
 
@@ -66,6 +66,7 @@ program lowlevel_nc
     if (lon_size /= N_LON) stop "bad lon size"
     if (time_size /= 1) stop "bad time size"
 
+    ! use expect optional arg to check dimension size
     t_var = snc_inq_var(file, "t")
     print *, trim(t_var%name), t_var%ndims, t_var%dims
     if (trim(t_var%name) /= "t") stop "didn't copy var name"
@@ -75,9 +76,10 @@ program lowlevel_nc
     print *, units
     if (trim(units) /= "K") stop "bad units"
 
-    call snc_read2(file, t_var, t2)
+    call snc_read(file, t_var, t2)
     print *, "t2 = ", t2
 
+    ! XXX read units with optional arg
     u_var = snc_inq_var(file, "u")
     print *, trim(u_var%name), u_var%ndims, u_var%dims
     if (trim(u_var%name) /= "u") stop "didn't copy var name"
@@ -87,7 +89,7 @@ program lowlevel_nc
     print *, datt
     if (datt /= 777.66) stop "bad 'thing' attribute"
 
-    call snc_read2(file, u_var, u2)
+    call snc_read(file, u_var, u2)
     print *, "u2 = ", u2
 
     call snc_close(file)
