@@ -1,5 +1,5 @@
-! NetCDF wrapper functions to make it easier to read and write NetCDF files
-! especially CF-compliant files and give more useful error messages.
+! NetCDF wrapper functions to make it easier to read and write NetCDF files,
+! especially CF-compliant files.  Also gives more useful error messages.
 module SimpleNetCDF
     use netcdf
     implicit none
@@ -7,23 +7,36 @@ module SimpleNetCDF
     type SNCFile
         integer :: ncid
         character(512) :: name
+        integer :: ndims, dimids(4)
+        character(32) :: z_name ! name of the vertical dimension
     end type SNCFile
 
     type SNCVar
         integer :: id
         character(128) :: name
-        integer :: ndims, dims(4)
+        integer :: ndims, dims(4) ! number of dimensions and dimension sizes
     end type SNCVar
 
-    ! read 2- and 3-dimensional variables of type integer, float (real*4)
+    interface snc_cf_write_coords
+        module procedure snc_cf_write_coords2f, snc_cf_write_coords2d
+        module procedure snc_cf_write_coords3f, snc_cf_write_coords3d
+    end interface snc_cf_write_coords
+
+    ! read 1-4 dimensional arrays of type integer, float (real*4)
     ! or double (real*8).
     interface snc_read
+        module procedure snc_read1i, snc_read1f, snc_read1d
         module procedure snc_read2i, snc_read2f, snc_read2d
+        module procedure snc_read3i, snc_read3f, snc_read3d
+        module procedure snc_read4i, snc_read4f, snc_read4d
     end interface snc_read
 
-    ! write 2- and 3-dimensional variables of type integer, float or double.
+    ! write 1-4 dimensional arrays of type integer, float or double.
     interface snc_write
+        module procedure snc_write1i, snc_write1f, snc_write1d
         module procedure snc_write2i, snc_write2f, snc_write2d
+        module procedure snc_write3i, snc_write3f, snc_write3d
+        module procedure snc_write4i, snc_write4f, snc_write4d
     end interface snc_write
 
     interface snc_get_att
@@ -35,6 +48,8 @@ module SimpleNetCDF
     end interface snc_put_att
 
     integer, parameter :: SNC_UNLIMITED = NF90_UNLIMITED
+    integer, parameter :: SNC_GLOBAL    = NF90_GLOBAL
+
     integer, parameter :: SNC_INT       = NF90_INT
     integer, parameter :: SNC_FLOAT     = NF90_FLOAT
     integer, parameter :: SNC_DOUBLE    = NF90_DOUBLE
@@ -47,7 +62,300 @@ module SimpleNetCDF
     integer, parameter :: SNC_DEFAULT_DEFLATE = 6
 #endif
 
+    ! Common calendars
+    character(16), parameter :: SNC_STANDARD_CAL = "standard" ! udunits' mixed gregorian/julian calendar
+    character(16), parameter :: SNC_NOLEAP = "noleap" ! all years are 365 days long
+
 contains
+
+    ! CF COMPLIANCY SECTION ---
+
+
+    ! Create a new CF-compliant gridded data file.
+    !
+    ! filename: the path name of the NetCDF file to create.
+    ! lon_size: the number of longitude grid points.
+    ! lat_size: the number of grid points along the latitude (Y)
+    ! time_units: A UDUNITS-compatible time format like:
+    !       seconds since 2012-02-01 03:05:22.0 -7:00
+    !   so we have a time unit (seconds) since an absolute time, namely 3
+    !   hours, 5 minutes and 22 seconds into February 1 2012, with timezone
+    !   offset of -7 hours (Mountain Standard Time).  Often you will want
+    !   to start at the beginning of a particular day and use UTC time
+    !   (no timezone offset), so you can use a simpler format like:
+    !       hours since 2012-01-01
+    !   Note that the time unit can be anything allowed by the UDUNITS
+    !   package, but most commonly this will be seconds, hours or days.
+    !   Time units of months or years can cause problems because both years
+    !   and months are of varying lengths, so their use is discouraged.
+    ! calendar: specifies the type of calendar so that dates can be properly
+    !   calculated.  Normally you will want to use SNC_STANDARD_CAL if you
+    !   are dealing with the standard western (gregorian) calendar for,
+    !   e.g. satellite data.  If you are dealing with a gregorian calendar
+    !   without leap years (every year is 365 days long), use SNC_NOLEAP.
+    !   See the [CF Docs](http://cf-pcmdi.llnl.gov/) for other calendars.
+    ! title: optional. "A succinct description of what is in the dataset."
+    !   e.g. "CO2 fluxes".
+    ! source: optional. "The method of production of the original data. If it
+    !   was model-generated, source should name the model and its version, as
+    !   specifically as could be useful.  If it is observational, source
+    !   should characterize it..." e.g. "radiosonde" or "SiB 3".
+    ! institution: optional.  Defaults to "Biocycle Research Group, Atmospheric
+    !   Science, CSU".
+    !
+    ! Other attributes you might consider adding with snc_put_att():
+    ! - comment: "Miscellaneous information about the data or methods used
+    !     to produce it."
+    ! - history: A list of programs that modified this file, what and when
+    !     they did it.
+    function snc_cf_grid_create(filename, lon_size, lat_size, time_units, calendar, &
+        title, source, institution, src_file, src_line)
+        character(*), intent(in) :: filename
+        integer, intent(in) :: lat_size, lon_size
+        character(*), intent(in) :: time_units
+        character(*), intent(in) :: calendar
+        character(*), intent(in), optional :: title, source, institution
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: snc_cf_grid_create, file
+        type(SNCVar) :: var, global_var
+        integer :: lat_id, lon_id, time_id
+        character(500) :: institution_val
+
+        file = snc_create(filename, src_file, src_line)
+
+        ! dimensions
+        lat_id = snc_def_dim(file, "lat", lat_size, src_file, src_line)
+        lon_id = snc_def_dim(file, "lon", lon_size, src_file, src_line)
+        time_id = snc_def_dim(file, "time", SNC_UNLIMITED, src_file, src_line)
+
+        ! coordinate variables
+        var = snc_cf_def_var(file, "lon", "longitude", SNC_FLOAT, "degrees_east", &
+            (/lon_id/), standard_name = "longitude", &
+            src_file = src_file, src_line = src_line)
+        call snc_put_att(file, var, "axis", "X", src_file, src_line)
+
+        var = snc_cf_def_var(file, "lat", "latitude", SNC_FLOAT, "degrees_north", &
+            (/lat_id/), standard_name = "latitude", &
+            src_file = src_file, src_line = src_line)
+        call snc_put_att(file, var, "axis", "Y", src_file, src_line)
+
+        var = snc_cf_def_var(file, "time", "time", SNC_FLOAT, time_units, (/time_id/), &
+            src_file = src_file, src_line = src_line)
+        call snc_put_att(file, var, "axis", "T", src_file, src_line)
+        call snc_put_att(file, var, "calendar", calendar, src_file, src_line)
+
+        ! global attributes
+        global_var%id = SNC_GLOBAL
+        global_var%name = "-global-"
+
+        call snc_put_att(file, global_var, "Conventions", "CF-1.5", src_file, src_line)
+        if (present(title)) then
+            call snc_put_att(file, global_var, "title", title, src_file, src_line)
+        end if
+        if (present(source)) then
+            call snc_put_att(file, global_var, "source", source, src_file, src_line)
+        end if
+        if (present(institution)) then
+            institution_val = institution
+        else
+            institution_val = "Biocycle Research Group, Atmospheric Science, CSU"
+        end if
+        call snc_put_att(file, global_var, "institution", trim(institution_val), &
+            src_file, src_line)
+
+        ! leave in define mode so user can do whatever else they need to
+        file%ndims = 3
+        file%dimids(1) = lon_id
+        file%dimids(2) = lat_id
+        file%dimids(3) = time_id
+        snc_cf_grid_create = file
+    end function snc_cf_grid_create
+
+    ! Define a CF-compliant vertical coordinate for a NetCDF file.
+    !
+    ! file: the SNCFile returned by snc_cf_grid_create().
+    ! z_size: the size of the vertical dimension.
+    ! name: the name of the vertical dimension and coordinate variable.
+    ! long_name: the long name for the vertical coordinate variable.
+    ! units: the units for the vertical coordinate variable.
+    ! positive: the direction of positive values, either "up" or "down".
+    ! standard_name: optional. a name from
+    !   http://cf-pcmdi.llnl.gov/documents/cf-standard-names/
+    !   matching this variable.
+    function snc_cf_grid_vertical(file, z_size, name, long_name, units, &
+        positive, standard_name, src_file, src_line)
+
+        type(SNCFile), intent(inout) :: file
+        integer, intent(in) :: z_size
+        character(*), intent(in) :: name, long_name, units, positive
+        character(*), intent(in), optional :: standard_name
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: z_id
+        type(SNCVar) :: var, snc_cf_grid_vertical
+
+        z_id = snc_def_dim(file, name, z_size, src_file, src_line)
+
+        var = snc_cf_def_var(file, name, long_name, SNC_FLOAT, units, &
+            (/z_id/), standard_name, src_file = src_file, src_line = src_line)
+        call snc_put_att(file, var, "axis", "Z", src_file, src_line)
+        call snc_put_att(file, var, "positive", positive, src_file, src_line)
+
+        if (file%ndims == 3) then
+            file%ndims = 4
+            file%dimids(4) = file%dimids(3) ! move time id to end
+            file%dimids(3) = z_id
+        else
+            if (present(src_file) .and. present(src_line)) then
+                write(*, "(A,' line',I5,': ',A)") src_file, src_line, &
+                    "in snc_cf_grid_vertical() - file%ndims /= 3"
+            else
+                write(*, "(A)") "in snc_cf_grid_vertical() - file%ndims /= 3"
+
+            end if
+            stop
+        end if
+
+        file%z_name = name
+        snc_cf_grid_vertical = var
+    end function snc_cf_grid_vertical
+
+    ! Define a CF-compliant NetCDF variable.
+    !
+    ! file: the SNCFile returned from snc_cf_grid_create().
+    ! varname: the name of the variable.
+    ! long_name: a more descriptive name for the variable.
+    ! type: a type for the variable; usually one of SNC_INT, SNC_FLOAT or
+    !   SNC_DOUBLE.
+    ! units: the units for the variable, compatible with UDUNITS.
+    ! dimids: optional.  An array of dimension IDs.  The default is to use
+    !   the full (time, lat, lon) or (time,<vert>,lat,lon) dimensions
+    !   defined with snc_cf_grid_create() and snc_cf_grid_vertical().
+    ! standard_name:  optional. a name from
+    !   http://cf-pcmdi.llnl.gov/documents/cf-standard-names/
+    !   matching this variable.
+    ! missing_value: optional. A value used for missing data in the variable.
+    !   NOT FOR COORDINATE VARIABLES.
+    ! fill_value: optional. A value for missing or undefined data.
+    !   NOT FOR COORDINATE VARIABLES.
+    ! valid_min: optional. Smallest valid value in the variable.
+    ! valid_max: optional. Largest valid value in the variable.
+    function snc_cf_def_var(file, varname, long_name, type, units, dimids, &
+        standard_name, missing_value, fill_value, valid_min, valid_max, &
+        src_file, src_line)
+
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: varname, long_name, units
+        integer, intent(in) :: type
+        integer, intent(in), optional :: dimids(:)
+        character(*), intent(in), optional :: standard_name
+        real, intent(in), optional :: missing_value
+        character(*), intent(in), optional :: fill_value, valid_min, valid_max
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var, snc_cf_def_var
+
+        if (present(dimids)) then
+            var = snc_def_var(file, varname, type, dimids, src_file, src_line)
+        else
+            var = snc_def_var(file, varname, type, file%dimids(1:file%ndims), &
+                src_file, src_line)
+        end if
+
+        call snc_put_att(file, var, "long_name", long_name, src_file, src_line)
+        call snc_put_att(file, var, "units", units, src_file, src_line)
+
+        if (present(standard_name)) then
+            call snc_put_att(file, var, "standard_name", standard_name, src_file, src_line)
+        end if
+        if (present(missing_value)) then
+            if (type == SNC_FLOAT .or. type == SNC_DOUBLE) then
+                call snc_put_att(file, var, "missing_value", missing_value, &
+                    src_file, src_line)
+            else
+                call snc_put_att(file, var, "missing_value", int(missing_value), &
+                    src_file, src_line)
+            end if
+        end if
+        if (present(fill_value)) then
+            call snc_put_att(file, var, "_FillValue", fill_value, src_file, src_line)
+        end if
+        if (present(valid_min)) then
+            call snc_put_att(file, var, "valid_min", valid_min, src_file, src_line)
+        end if
+        if (present(valid_max)) then
+            call snc_put_att(file, var, "valid_max", valid_max, src_file, src_line)
+        end if
+
+        snc_cf_def_var = var
+    end function snc_cf_def_var
+
+    ! Write the coordinate variables to a CF-compliant NetCDF file.
+    subroutine snc_cf_write_coords2f(file, lon, lat, time, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        real*4, intent(in), dimension(:) :: lon, lat, time
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var = snc_inq_var(file, "lat", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, lat, src_file, src_line)
+
+        var = snc_inq_var(file, "lon", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, lon, src_file, src_line)
+
+        var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, time, src_file, src_line)
+    end subroutine snc_cf_write_coords2f
+
+    subroutine snc_cf_write_coords2d(file, lon, lat, time, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        real*8, intent(in), dimension(:) :: lon, lat, time
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var = snc_inq_var(file, "lat", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, lat, src_file, src_line)
+
+        var = snc_inq_var(file, "lon", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, lon, src_file, src_line)
+
+        var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
+        call snc_write(file, var, time, src_file, src_line)
+    end subroutine snc_cf_write_coords2d
+
+    subroutine snc_cf_write_coords3f(file, lon, lat, z, time, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        real*4, intent(in), dimension(:) :: lon, lat, z, time
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: z_var
+
+        call snc_cf_write_coords(file, lon, lat, time, src_file, src_line)
+
+        z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
+        call snc_write(file, z_var, z, src_file, src_line)
+    end subroutine snc_cf_write_coords3f
+
+    subroutine snc_cf_write_coords3d(file, lon, lat, z, time, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        real*8, intent(in), dimension(:) :: lon, lat, z, time
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: z_var
+
+        call snc_cf_write_coords(file, lon, lat, time, src_file, src_line)
+
+        z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
+        call snc_write(file, z_var, z, src_file, src_line)
+    end subroutine snc_cf_write_coords3d
+
+
+
+    ! OPEN SECTION ---
+
 
     ! Open a NetCDF file for reading
     function snc_open(filename, src_file, src_line)
@@ -78,9 +386,23 @@ contains
     end function snc_create
 
 
-
     ! DIMENSIONS SECTION ---
 
+
+    ! Returns the NetCDF ID for the given dimension name.
+    function snc_get_dimid(file, dimname, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: dimname
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_get_dimid
+        character(700) :: err_msg
+
+        write(err_msg, "('getting id for dimension ''',A,''' in ',A)") &
+            trim(dimname), trim(file%name)
+        call snc_handle_error(nf90_inq_dimid(file%ncid, dimname, snc_get_dimid), &
+            err_msg, src_file, src_line)
+    end function snc_get_dimid
 
     ! Returns the size of the given dimension
     function snc_get_dim(file, dimname, src_file, src_line)
@@ -92,10 +414,7 @@ contains
         integer :: dimid
         character(700) :: err_msg
 
-        write(err_msg, "('getting id for dimension ''',A,''' in ',A)") &
-            trim(dimname), trim(file%name)
-        call snc_handle_error(nf90_inq_dimid(file%ncid, dimname, dimid), &
-            err_msg, src_file, src_line)
+        dimid = snc_get_dimid(file, dimname, src_file, src_line)
 
         write(err_msg, "('getting length for dimension ''',A,''' in ',A)") &
             trim(dimname), trim(file%name)
@@ -124,7 +443,7 @@ contains
 
 
 
-    ! VARIABLES SECTION
+    ! VARIABLES SECTION ---
 
 
     ! Looks for the given variable name in the NetCDF file and gets its
@@ -194,8 +513,59 @@ contains
         snc_def_var%name = varname
     end function snc_def_var
 
+
+
+    ! READ VAR SECTION ---
+
+
     ! Read a variable's data into a 2-dimensional array, then return it to
     ! the user.
+    subroutine snc_read1i(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, pointer :: data(:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1)))
+        write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read1i
+
+    subroutine snc_read1f(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, pointer :: data(:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1)))
+        write(err_msg, "('reading 2d float variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read1f
+
+    subroutine snc_read1d(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, pointer :: data(:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1)))
+        write(err_msg, "('reading 2d double variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read1d
+
+
     subroutine snc_read2i(file, var, data, src_file, src_line)
        type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -241,7 +611,147 @@ contains
             err_msg, src_file, src_line)
     end subroutine snc_read2d
 
+
+    subroutine snc_read3i(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, pointer :: data(:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3)))
+        write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read3i
+
+    subroutine snc_read3f(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, pointer :: data(:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3)))
+        write(err_msg, "('reading 2d float variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read3f
+
+    subroutine snc_read3d(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, pointer :: data(:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3)))
+        write(err_msg, "('reading 2d double variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read3d
+
+
+    subroutine snc_read4i(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, pointer :: data(:,:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
+        write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read4i
+
+    subroutine snc_read4f(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, pointer :: data(:,:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
+        write(err_msg, "('reading 2d float variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read4f
+
+    subroutine snc_read4d(file, var, data, src_file, src_line)
+       type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, pointer :: data(:,:,:,:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
+        write(err_msg, "('reading 2d double variable ''',A,''' in ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_read4d
+
+
+
+    ! WRITE VAR SECTION ---
+
+
     ! Write the given variable's data to a NetCDF file.
+    subroutine snc_write1i(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, intent(in), dimension(:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write1i
+
+    subroutine snc_write1f(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, intent(in), dimension(:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write1f
+
+    subroutine snc_write1d(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, intent(in), dimension(:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write1d
+
+
     subroutine snc_write2i(file, var, data, src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -283,6 +793,92 @@ contains
         call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
             err_msg, src_file, src_line)
     end subroutine snc_write2d
+
+
+    subroutine snc_write3i(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, intent(in), dimension(:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 3d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write3i
+
+    subroutine snc_write3f(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, intent(in), dimension(:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 3d float variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write3f
+
+    subroutine snc_write3d(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, intent(in), dimension(:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 3d double variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write3d
+
+
+    subroutine snc_write4i(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        integer, intent(in), dimension(:,:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 4d int variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write4i
+
+    subroutine snc_write4f(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*4, intent(in), dimension(:,:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 4d float variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write4f
+
+    subroutine snc_write4d(file, var, data, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        type(SNCVar), intent(in) :: var
+        real*8, intent(in), dimension(:,:,:,:) :: data
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        character(700) :: err_msg
+
+        write(err_msg, "('writing 4d double variable ''',A,''' to ',A)") &
+            trim(var%name), trim(file%name)
+        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+            err_msg, src_file, src_line)
+    end subroutine snc_write4d
 
 
 

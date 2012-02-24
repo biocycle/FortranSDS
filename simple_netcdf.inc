@@ -1,6 +1,11 @@
 #ifndef SIMPLE_NETCDF_INC
 #define SIMPLE_NETCDF_INC
 
+#define SNC_CF_GRID_CREATE(...) snc_cf_grid_create(__VA_ARGS__, __FILE__, __LINE__)
+#define SNC_CF_GRID_VERTICAL(...) snc_cf_grid_vertical(__VA_ARGS__, __FILE__, __LINE__)
+#define SNC_CF_DEF_VAR(...) snc_cf_def_var(__VA_ARGS__, __FILE__, __LINE__)
+#define SNC_CF_WRITE_COORDS(...) snc_cf_write_coords(__VA_ARGS__, __FILE__, __LINE__)
+
 #define SNC_OPEN(path) snc_open(path, __FILE__, __LINE__)
 #define SNC_CREATE(path) snc_create(path, __FILE__, __LINE__)
 

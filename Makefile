@@ -38,7 +38,7 @@ LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5
 
 all: test
 
-test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line
+test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line test/cf_nc
 
 test/lowlevel_nc: simple_netcdf.o test/lowlevel_nc.o
 	$(F90) -o $@ $^ $(LDFLAGS)
@@ -47,6 +47,9 @@ test/snc_with_file_line: simple_netcdf.o test/snc_with_file_line.o
 	$(F90) -o $@ $^ $(LDFLAGS)
 
 test/snc_no_file_line: simple_netcdf.o test/snc_no_file_line.o
+	$(F90) -o $@ $^ $(LDFLAGS)
+
+test/cf_nc: simple_netcdf.o test/cf_nc.o
 	$(F90) -o $@ $^ $(LDFLAGS)
 
 clean:
