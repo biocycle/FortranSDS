@@ -14,6 +14,7 @@
 
 #define ALLOC_NODE(level) (SkipListNode *)xmalloc(NODE_SIZE(level))
 
+#define FORWARDS(node) ((SkipListNode **)((SkipListNode *)(node) + 1))
 
 /* Subtractive method PRNG due to Knuth, described in chapter 7 of "Numerical
  * Recipes in C: The Art of Scientific Computing" (ISBN 0-521-43108-5).
@@ -80,9 +81,10 @@ static int random_level()
 
 static SkipListNode *create_node(char *key, void *value, int *level)
 {
-	*level = random_level();
+    SkipListNode *node;
 
-	SkipListNode *node = ALLOC_NODE(*level);
+	*level = random_level();
+	node = ALLOC_NODE(*level);
 	node->key = key;
 	node->value = value;
 
@@ -94,16 +96,18 @@ static SkipListNode *create_node(char *key, void *value, int *level)
  */
 SkipList *skiplist_new(void)
 {
+    SkipList *sl;
+
     if (!prng_inited) {
         init_ran();
         prng_inited = 1;
     }
 
-	SkipList *sl = NEW(SkipList);
+	sl = NEW(SkipList);
 	sl->max_level = INITIAL_LEVEL;
 	sl->header = ALLOC_NODE(sl->max_level);
     sl->header->key = sl->header->value = NULL;
-	memset(sl->header->forwards, 0, sizeof(SkipListNode *) * sl->max_level);
+	memset(FORWARDS(sl->header), 0, sizeof(SkipListNode *) * sl->max_level);
 	sl->update = NEWA(SkipListNode *, sl->max_level);
 
 	return sl;
@@ -117,7 +121,7 @@ void skiplist_free(SkipList *sl, void (*free_value)(void *))
 	SkipListNode *n = sl->header, *f;
 
     do {
-        f = n->forwards[0];
+        f = FORWARDS(n)[0];
         if (free_value && n->value)
             (free_value)(n->value);
         free(n);
@@ -138,13 +142,13 @@ void *skiplist_find(SkipList *sl, char *key)
 
 	while (l >= 0) {
 		for (;;) {
-			f = n->forwards[l];
+			f = FORWARDS(n)[l];
 			if (!f || strcmp(f->key, key) >= 0) break;
 			n = f;
 		}
 		l--;
 	}
-	n = n->forwards[0];
+	n = FORWARDS(n)[0];
 
 	return (n && !strcmp(n->key, key)) ? n->value : NULL;
 }
@@ -160,14 +164,14 @@ int skiplist_add(SkipList *sl, char *key, void *value)
 
 	while (l >= 0) {
 		for (;;) {
-			f = n->forwards[l];
+			f = FORWARDS(n)[l];
 			if (!f || strcmp(f->key, key) >= 0) break;
 			n = f;
 		}
 		sl->update[l] = n;
 		l--;
 	}
-	n = n->forwards[0];
+	n = FORWARDS(n)[0];
 
 	if (n && !strcmp(n->key, key)) { /* key already exists */
 		return -1;
@@ -186,8 +190,8 @@ int skiplist_add(SkipList *sl, char *key, void *value)
 
         l = level - 1;
 		while (l >= 0) {
-			n->forwards[l] = sl->update[l]->forwards[l];
-			sl->update[l]->forwards[l] = n;
+			FORWARDS(n)[l] = FORWARDS(sl->update[l])[l];
+			FORWARDS(sl->update[l])[l] = n;
 			l--;
 		}
 		sl->n_nodes++;
@@ -207,21 +211,21 @@ void *skiplist_remove(SkipList *sl, char *key)
 
 	while (l >= 0) {
 		for (;;) {
-			f = n->forwards[l];
+			f = FORWARDS(n)[l];
 			if (!f || strcmp(f->key, key) >= 0) break;
 			n = f;
 		}
 		sl->update[l] = n;
 		l--;
 	}
-	n = n->forwards[0];
+	n = FORWARDS(n)[0];
 
 	if (n && !strcmp(n->key, key)) { /* key found; remove */
 		ret = n->value;
 
 		for (l = 0; l < sl->max_level; l++) {
-			if (sl->update[l]->forwards[l] != n) break;
-			sl->update[l]->forwards[l] = n->forwards[l];
+			if (FORWARDS(sl->update[l])[l] != n) break;
+			FORWARDS(sl->update[l])[l] = FORWARDS(n)[l];
 		}
 		free(n);
 		sl->n_nodes--;
@@ -232,12 +236,13 @@ void *skiplist_remove(SkipList *sl, char *key)
 /* Iterate through each skip list entry in order, with the given
  * callback function called for each node.
  */
-void skiplist_each(SkipList *sl, void (*visit)(char *key, void *value))
+void skiplist_each(SkipList *sl, void (*visit)(char *key, void *value, void *data),
+                   void *data)
 {
-    SkipListNode *n = sl->header->forwards[0];
+    SkipListNode *n = FORWARDS(sl->header)[0];
     while (n) {
-        (visit)(n->key, n->value);
-        n = n->forwards[0];
+        (visit)(n->key, n->value, data);
+        n = FORWARDS(n)[0];
     }
 }
 
@@ -250,11 +255,11 @@ void skiplist_each(SkipList *sl, void (*visit)(char *key, void *value))
 void *skiplist_search(SkipList *sl, int (*searchcb)(char *, void *, void *),
                      void *data)
 {
-    SkipListNode *n = sl->header->forwards[0];
+    SkipListNode *n = FORWARDS(sl->header)[0];
     while (n) {
         if ((searchcb)(n->key, n->value, data))
             return n->value;
-        n = n->forwards[0];
+        n = FORWARDS(n)[0];
     }
     return NULL;
 }

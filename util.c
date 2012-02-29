@@ -3,6 +3,7 @@
  */
 #include "util.h"
 #include <stdio.h>
+#include <string.h>
 
 void *xmalloc(size_t bytes)
 {
@@ -47,4 +48,11 @@ void *grow_ary(void *ary, size_t element_size, size_t *capacity)
     else
         *capacity *= 2;
     return realloc(ary, element_size * *capacity);
+}
+
+char *xstrdup(const char *s)
+{
+    char *t = xmalloc(strlen(s) + 1);
+    strcpy(t, s);
+    return t;
 }

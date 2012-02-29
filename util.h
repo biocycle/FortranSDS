@@ -21,4 +21,6 @@ void *grow_ary(void *ary, size_t element_size, size_t *capacity);
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
-#endif // UTIL_H
+char *xstrdup(const char *);
+
+#endif /* UTIL_H */
