@@ -25,8 +25,6 @@ static const char OPTIONS[] =
 "  -F       generate Fortran 77 code\n"
 "  -h       print this help message\n"
 "  -o FILE  write the code to FILE instead of stdout\n"
-"  -r       generate code to read this file; default\n"
-"  -w       generate code to write this file format\n"
 "  -q       goes about its work more quietly\n"
 ;
 
@@ -34,7 +32,6 @@ static const char OPTIONS[] =
 static enum Language gen_lang = LANG_NONE;
 static char *input_file = NULL, *output_file = NULL;
 static FILE *fout = NULL;
-static int gen_read = 0, gen_write = 0;
 static int be_verbose = 1;
 
 static void arg_parse_error(const char *argv0, const char *fmt, ...)
@@ -81,14 +78,8 @@ static void parse_args(int argc, char **argv)
                         arg_parse_error(argv[0], "Missing output file after '%s'", argv[i]);
                     }
                     break;
-                case 'r':
-                    gen_read = 1;
-                    break;
                 case 'q':
                     be_verbose = 0;
-                    break;
-                case 'w':
-                    gen_write = 1;
                     break;
                 default:
                     arg_parse_error(argv[0], "Invalid option '%c'", argv[i][j]);
@@ -115,12 +106,6 @@ static void parse_args(int argc, char **argv)
 
     if (output_file && be_verbose) {
         printf("Writing output to %s instead of stdout\n", output_file);
-    }
-
-    if (!gen_read && !gen_write) {
-        if (be_verbose)
-            puts("Defaulting to generating read code");
-        gen_read = 1;
     }
 }
 
