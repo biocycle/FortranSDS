@@ -152,6 +152,8 @@ SDSInfo *open_nc_sds(const char *path)
 
         vi->atts = skiplist_new();
         read_attributes(path, ncid, ids[i], natts, vi->atts);
+
+        skiplist_add(sds->vars, vi->name, vi);
     }
 
     return sds;
