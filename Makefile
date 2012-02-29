@@ -24,8 +24,12 @@ ifeq ($(NC4),true)
 	FFLAGS += -DHAVE_NETCDF4
 endif
 
+CFLAGS += -I. -I$(NC_ROOT)/include
 FFLAGS += -I. -I$(NC_ROOT)/include
 LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz
+C_LDFLAGS = $(LDFLAGS) -lm
+
+NC2CODE_OBJS = nc2code.o generate_f90.o sds_nc.o skiplist.o util.o
 
 .SUFFIXES:
 .SUFFIXES: .c .f90 .F90 .o
@@ -45,8 +49,8 @@ LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5
 
 all: test
 
-nc2code: nc2code.o
-	$(CC) -o $@ $^ $(LDFLAGS)
+nc2code: $(NC2CODE_OBJS)
+	$(CC) -o $@ $^ $(C_LDFLAGS)
 
 test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line test/cf_nc
 

@@ -1,12 +1,16 @@
 /* nc2code.c - given a netcdf file, generate code to read or write it.
  * Copyright (C) 2012 Matthew Bishop
  */
+#include "sds.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+extern void generate_f90_code(FILE *fout, SDSInfo *info, int generate_att);
 
 enum Language {
     LANG_NONE,
@@ -20,6 +24,7 @@ static const char OPTIONS[] =
 "Inspect a NetCDF file's metadata and emit code in various languages\n"
 "to read or write that file.\n\n"
 "Options:\n"
+"  -a       generate code to read attributes; default = no\n"
 "  -c       generate C code\n"
 "  -f       generate Fortran 90 code; default\n"
 "  -F       generate Fortran 77 code\n"
@@ -32,7 +37,7 @@ static const char OPTIONS[] =
 static enum Language gen_lang = LANG_NONE;
 static char *input_file = NULL, *output_file = NULL;
 static FILE *fout = NULL;
-static int be_verbose = 1;
+static int be_verbose = 1, generate_att = 0;
 
 static void arg_parse_error(const char *argv0, const char *fmt, ...)
 {
@@ -56,6 +61,9 @@ static void parse_args(int argc, char **argv)
         if (argv[i][0] == '-') {
             for (j = 1; argv[i][j] != '\0'; j++) {
                 switch (argv[i][j]) {
+                case 'a':
+                    generate_att = 1;
+                    break;
                 case 'c':
                     gen_lang = LANG_C;
                     break;
@@ -111,10 +119,15 @@ static void parse_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+    SDSInfo *nc_info;
+
     parse_args(argc, argv);
 
     /* read netcdf metadata */
+    nc_info = open_nc_sds(input_file);
+    assert(nc_info != NULL);
 
+    /* open output file */
     if (output_file) {
         fout = fopen(output_file, "w");
         if (!fout) {
@@ -124,6 +137,22 @@ int main(int argc, char **argv)
         }
     } else {
         fout = stdout;
+    }
+
+    /* generate code */
+    switch (gen_lang) {
+    case LANG_C:
+        puts("C code generation not implemented yet");
+        break;
+    case LANG_F90:
+        generate_f90_code(fout, nc_info, generate_att);
+        break;
+    case LANG_F77:
+        puts("Fortran 77 code generation not implemented yet");
+        break;
+    default:
+        abort();
+        break;
     }
 
     if (fout != stdout && fclose(fout) != 0) {
