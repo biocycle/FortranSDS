@@ -67,19 +67,16 @@ program lowlevel_nc
     if (time_size /= 1) stop "bad time size"
 
     ! use expect optional arg to check dimension size
-    t_var = snc_inq_var(file, "t")
+    t_var = snc_inq_var(file, "t", units)
     print *, trim(t_var%name), t_var%ndims, t_var%dims
     if (trim(t_var%name) /= "t") stop "didn't copy var name"
     if (t_var%ndims /= 3) stop "wrong number of var dimensions"
-
-    call snc_get_att(file, t_var, "units", units)
     print *, units
     if (trim(units) /= "K") stop "bad units"
 
     call snc_read(file, t_var, t2)
     print *, "t2 = ", t2
 
-    ! XXX read units with optional arg
     u_var = snc_inq_var(file, "u")
     print *, trim(u_var%name), u_var%ndims, u_var%dims
     if (trim(u_var%name) /= "u") stop "didn't copy var name"

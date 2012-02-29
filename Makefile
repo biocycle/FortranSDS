@@ -67,4 +67,5 @@ test/cf_nc: simple_netcdf.o test/cf_nc.o
 	$(F90) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f *~ *.o *.mod test/*.o test/lowlevel_nc test/snc_*_file_line
+	rm -f *~ *.o *.mod simple.nc cf.nc
+	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc

@@ -7,7 +7,7 @@ module SimpleNetCDF
     type SNCFile
         integer :: ncid
         character(512) :: name
-        integer :: ndims, dimids(4)
+        integer :: ndims, cfdimids(4)
         character(32) :: z_name ! name of the vertical dimension
     end type SNCFile
 
@@ -47,8 +47,15 @@ module SimpleNetCDF
         module procedure snc_put_att_str, snc_put_atti, snc_put_attf, snc_put_attd
     end interface snc_put_att
 
+    interface snc_get_global_att
+        module procedure snc_get_gatt_str, snc_get_gatti, snc_get_gattf, snc_get_gattd
+    end interface snc_get_global_att
+
+    interface snc_put_global_att
+        module procedure snc_put_gatt_str, snc_put_gatti, snc_put_gattf, snc_put_gattd
+    end interface snc_put_global_att
+
     integer, parameter :: SNC_UNLIMITED = NF90_UNLIMITED
-    integer, parameter :: SNC_GLOBAL    = NF90_GLOBAL
 
     integer, parameter :: SNC_INT       = NF90_INT
     integer, parameter :: SNC_FLOAT     = NF90_FLOAT
@@ -100,27 +107,25 @@ contains
     !   was model-generated, source should name the model and its version, as
     !   specifically as could be useful.  If it is observational, source
     !   should characterize it..." e.g. "radiosonde" or "SiB 3".
-    ! institution: optional.  Defaults to "Biocycle Research Group, Atmospheric
-    !   Science, CSU".
     !
     ! Other attributes you might consider adding with snc_put_att():
     ! - comment: "Miscellaneous information about the data or methods used
     !     to produce it."
     ! - history: A list of programs that modified this file, what and when
     !     they did it.
+    ! - institution: The name of the facility where the data was created.
     function snc_cf_grid_create(filename, lon_size, lat_size, time_units, calendar, &
-        title, source, institution, src_file, src_line)
+        title, source, src_file, src_line)
         character(*), intent(in) :: filename
         integer, intent(in) :: lat_size, lon_size
         character(*), intent(in) :: time_units
         character(*), intent(in) :: calendar
-        character(*), intent(in), optional :: title, source, institution
+        character(*), intent(in), optional :: title, source
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCFile) :: snc_cf_grid_create, file
         type(SNCVar) :: var, global_var
         integer :: lat_id, lon_id, time_id
-        character(500) :: institution_val
 
         file = snc_create(filename, src_file, src_line)
 
@@ -146,29 +151,22 @@ contains
         call snc_put_att(file, var, "calendar", calendar, src_file, src_line)
 
         ! global attributes
-        global_var%id = SNC_GLOBAL
+        global_var%id = NF90_GLOBAL
         global_var%name = "-global-"
 
-        call snc_put_att(file, global_var, "Conventions", "CF-1.5", src_file, src_line)
+        call snc_put_att(file, global_var, "Conventions", "CF-1.6", src_file, src_line)
         if (present(title)) then
             call snc_put_att(file, global_var, "title", title, src_file, src_line)
         end if
         if (present(source)) then
             call snc_put_att(file, global_var, "source", source, src_file, src_line)
         end if
-        if (present(institution)) then
-            institution_val = institution
-        else
-            institution_val = "Biocycle Research Group, Atmospheric Science, CSU"
-        end if
-        call snc_put_att(file, global_var, "institution", trim(institution_val), &
-            src_file, src_line)
 
         ! leave in define mode so user can do whatever else they need to
         file%ndims = 3
-        file%dimids(1) = lon_id
-        file%dimids(2) = lat_id
-        file%dimids(3) = time_id
+        file%cfdimids(1) = lon_id
+        file%cfdimids(2) = lat_id
+        file%cfdimids(3) = time_id
         snc_cf_grid_create = file
     end function snc_cf_grid_create
 
@@ -204,8 +202,8 @@ contains
 
         if (file%ndims == 3) then
             file%ndims = 4
-            file%dimids(4) = file%dimids(3) ! move time id to end
-            file%dimids(3) = z_id
+            file%cfdimids(4) = file%cfdimids(3) ! move time id to end
+            file%cfdimids(3) = z_id
         else
             if (present(src_file) .and. present(src_line)) then
                 write(*, "(A,' line',I5,': ',A)") src_file, src_line, &
@@ -259,7 +257,7 @@ contains
         if (present(dimids)) then
             var = snc_def_var(file, varname, type, dimids, src_file, src_line)
         else
-            var = snc_def_var(file, varname, type, file%dimids(1:file%ndims), &
+            var = snc_def_var(file, varname, type, file%cfdimids(1:file%ndims), &
                 src_file, src_line)
         end if
 
@@ -518,8 +516,6 @@ contains
     ! READ VAR SECTION ---
 
 
-    ! Read a variable's data into a 2-dimensional array, then return it to
-    ! the user.
     subroutine snc_read1i(file, var, data, src_file, src_line)
        type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -567,18 +563,29 @@ contains
 
 
     subroutine snc_read2i(file, var, data, src_file, src_line)
-       type(SNCFile), intent(in) :: file
+        type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, pointer :: data(:,:)
+        !integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         character(700) :: err_msg
+        !integer, dimension(4) :: start, count
 
         allocate(data(var%dims(1), var%dims(2)))
         write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        ! if (present(timestep)) then
+        !     start(:) = 1
+        !     start(var%ndims) = timestep
+        !     count(1:var%ndims - 1) = var%dims(1:var%ndims - 1))
+        !     count(var%ndims) = 1
+        !     call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+        !         start(1:var%ndims), count(1:var%ndims), err_msg, src_file, src_line)
+        ! else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        !end if
     end subroutine snc_read2i
 
     subroutine snc_read2f(file, var, data, src_file, src_line)
@@ -752,18 +759,29 @@ contains
     end subroutine snc_write1d
 
 
-    subroutine snc_write2i(file, var, data, src_file, src_line)
+    subroutine snc_write2i(file, var, data, timestep, src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, intent(in), dimension(:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
 
         write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        if (present(timestep)) then
+            start(:) = 1
+            start(var%ndims) = timestep
+            count = var%dims
+            count(var%ndims) = 1
+            call snc_handle_error(nf90_put_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_write2i
 
     subroutine snc_write2f(file, var, data, src_file, src_line)
@@ -946,6 +964,62 @@ contains
             err_msg, src_file, src_line)
     end subroutine snc_get_attd
 
+
+
+    subroutine snc_get_gatt_str(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        character(*), intent(out) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_get_att_str(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_get_gatt_str
+
+    subroutine snc_get_gatti(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        integer, intent(out) :: attvalue(:)
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_get_atti(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_get_gatti
+
+    subroutine snc_get_gattf(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        real*4, intent(out) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_get_attf(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_get_gattf
+
+    subroutine snc_get_gattd(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        real*8, intent(out) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_get_attd(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_get_gattd
+
+
+
     ! Write an attribute to the NetCDF file.
     subroutine snc_put_att_str(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1005,6 +1079,60 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_put_attd
+
+
+
+    ! Write an attribute to the NetCDF file.
+    subroutine snc_put_gatt_str(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname, attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_put_att_str(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_put_gatt_str
+
+    subroutine snc_put_gatti(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        integer, intent(in) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_put_atti(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_put_gatti
+
+    subroutine snc_put_gattf(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        real*4, intent(in) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_put_attf(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_put_gattf
+
+    subroutine snc_put_gattd(file, attname, attvalue, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: attname
+        real*8, intent(in) :: attvalue
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: var
+
+        var%id = NF90_GLOBAL
+        var%name = "(global)"
+        call snc_put_attd(file, var, attname, attvalue, src_file, src_line)
+    end subroutine snc_put_gattd
 
 
 
