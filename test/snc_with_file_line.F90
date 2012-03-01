@@ -10,7 +10,7 @@ program with_file_line
     file%ncid = -1
     file%name = "nonexistent_file.nc"
 
-    dimid = SNC_GET_DIM(file, "some_dim")
+    dimid = snc_get_dim(file, "some_dim")
 
     print *, dimid
 end program with_file_line

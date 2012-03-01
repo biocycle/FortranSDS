@@ -38,99 +38,99 @@ program cf_nc
         source = "some test program", src_file = __FILE__, src_line = __LINE__)
     var = snc_cf_def_var(file, "t", "temperature", SNC_FLOAT, "K", &
         standard_name = "air_temperature", missing_value = -999.0)
-    call SNC_ENDDEF(file)
-    call SNC_CF_WRITE_COORDS(file, lon, lat, time)
-    call SNC_WRITE(file, var, t)
-    call SNC_CLOSE(file)
+    call snc_enddef(file)
+    call snc_cf_write_coords(file, lon, lat, time)
+    call snc_write(file, var, t)
+    call snc_close(file)
 
     ! verify dimensions, global attributes, variables and their attributes
-    file = SNC_OPEN("cf.nc")
+    file = snc_open("cf.nc")
 
-    call SNC_GET_GLOBAL_ATT(file, "Conventions", attv)
+    call snc_get_global_att(file, "Conventions", attv)
     if (attv /= "CF-1.6") print *, "Bad 'Conventions' value", trim(attv)
 
-    call SNC_GET_GLOBAL_ATT(file, "title", attv)
+    call snc_get_global_att(file, "title", attv)
     if (attv /= "test file")  print *, "Bad 'title' value", trim(attv)
 
-    call SNC_GET_GLOBAL_ATT(file, "source", attv)
+    call snc_get_global_att(file, "source", attv)
     if (attv /= "some test program")  print *, "Bad 'source' value", trim(attv)
 
-    lat_size = SNC_GET_DIM(file, "lat")
-    lon_size = SNC_GET_DIM(file, "lon")
-    time_size = SNC_GET_DIM(file, "time")
+    lat_size = snc_get_dim(file, "lat")
+    lon_size = snc_get_dim(file, "lon")
+    time_size = snc_get_dim(file, "time")
     if (lat_size /= N_LAT) print *, "Bad lat size", lat_size
     if (lon_size /= N_LON) print *, "Bad lon size", lon_size
     if (time_size /= N_TIME) print *, "Bad time size", time_size
 
-    var =  SNC_INQ_VAR(file, "lon")
+    var =  snc_inq_var(file, "lon")
     if (var%ndims /= 1) print *, "Bad lon dim count", var%ndims
     if (var%dims(1) /= lon_size) print *, "Bad lon var size", var%dims(1)
 
-    call SNC_GET_ATT(file, var, "long_name", attv)
+    call snc_get_att(file, var, "long_name", attv)
     if (trim(attv) /= "longitude") print *, "Bad lon:long_name value", attv
-    call SNC_GET_ATT(file, var, "units", attv)
+    call snc_get_att(file, var, "units", attv)
     if (trim(attv) /= "degrees_east") print *, "Bad lon:units value", attv
-    call SNC_GET_ATT(file, var, "standard_name", attv)
+    call snc_get_att(file, var, "standard_name", attv)
     if (trim(attv) /= "longitude") print *, "Bad lon:standard_name value", attv
-    call SNC_GET_ATT(file, var, "axis", attv)
+    call snc_get_att(file, var, "axis", attv)
     if (trim(attv) /= "X") print *, "Bad lon:axis value", attv
 
-    call SNC_READ(file, var, coord)
+    call snc_read(file, var, coord)
     print *, 'lon = ', coord
     deallocate(coord)
 
-    var =  SNC_INQ_VAR(file, "lat")
+    var =  snc_inq_var(file, "lat")
     if (var%ndims /= 1) print *, "Bad lat dim count", var%ndims
     if (var%dims(1) /= lat_size) print *, "Bad lat var size", var%dims(1)
 
-    call SNC_GET_ATT(file, var, "long_name", attv)
+    call snc_get_att(file, var, "long_name", attv)
     if (trim(attv) /= "latitude") print *, "Bad lat:long_name value", attv
-    call SNC_GET_ATT(file, var, "units", attv)
+    call snc_get_att(file, var, "units", attv)
     if (trim(attv) /= "degrees_north") print *, "Bad lat:units value", attv
-    call SNC_GET_ATT(file, var, "standard_name", attv)
+    call snc_get_att(file, var, "standard_name", attv)
     if (trim(attv) /= "latitude") print *, "Bad lat:standard_name value", attv
-    call SNC_GET_ATT(file, var, "axis", attv)
+    call snc_get_att(file, var, "axis", attv)
     if (trim(attv) /= "Y") print *, "Bad lat:axis value", attv
 
-    call SNC_READ(file, var, coord)
+    call snc_read(file, var, coord)
     print *, 'lat = ', coord
     deallocate(coord)
 
-    var =  SNC_INQ_VAR(file, "time")
+    var =  snc_inq_var(file, "time")
     if (var%ndims /= 1) print *, "Bad time dim count", var%ndims
     if (var%dims(1) /= time_size) print *, "Bad time var size", var%dims(1)
 
-    call SNC_GET_ATT(file, var, "long_name", attv)
+    call snc_get_att(file, var, "long_name", attv)
     if (trim(attv) /= "time") print *, "Bad time:long_name value", attv
-    call SNC_GET_ATT(file, var, "units", attv)
+    call snc_get_att(file, var, "units", attv)
     if (trim(attv) /= "hours since 2012-02-03") print *, "Bad time:units value", attv
-    call SNC_GET_ATT(file, var, "axis", attv)
+    call snc_get_att(file, var, "axis", attv)
     if (trim(attv) /= "T") print *, "Bad time:axis value", attv
-    call SNC_GET_ATT(file, var, "calendar", attv)
+    call snc_get_att(file, var, "calendar", attv)
     if (trim(attv) /= "standard") print *, "Bad time:calendar value", attv
 
-    call SNC_READ(file, var, coord)
+    call snc_read(file, var, coord)
     print *, 'time = ', coord
     deallocate(coord)
 
-    var =  SNC_INQ_VAR(file, "t")
+    var =  snc_inq_var(file, "t")
     if (var%ndims /= 3) print *, "Bad lon dim count", var%ndims
     if (var%dims(1) /= N_LON) print *, "Bad t dimension 1", var%dims(1)
     if (var%dims(2) /= N_LAT) print *, "Bad t dimension 2", var%dims(2)
     if (var%dims(3) /= N_TIME) print *, "Bad t dimension 3", var%dims(3)
 
-    call SNC_GET_ATT(file, var, "long_name", attv)
+    call snc_get_att(file, var, "long_name", attv)
     if (trim(attv) /= "temperature") print *, "Bad t:long_name value", attv
-    call SNC_GET_ATT(file, var, "units", attv)
+    call snc_get_att(file, var, "units", attv)
     if (trim(attv) /= "K") print *, "Bad t:units value", attv
-    call SNC_GET_ATT(file, var, "standard_name", attv)
+    call snc_get_att(file, var, "standard_name", attv)
     if (trim(attv) /= "air_temperature") print *, "Bad t:standard_name value", attv
-    call SNC_GET_ATT(file, var, "missing_value", attvf)
+    call snc_get_att(file, var, "missing_value", attvf)
     if (attvf /= -999.0) print *, "Bad t:missing_value value", attvf
 
-    call SNC_READ(file, var, t2)
+    call snc_read(file, var, t2)
     print *, 't2 = ', t2
     deallocate(t2)
 
-    call SNC_CLOSE(file)
+    call snc_close(file)
 end program cf_nc
