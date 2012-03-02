@@ -1,4 +1,4 @@
-#include <simple_netcdf.nc>
+#include <simple_netcdf.inc>
 
 subroutine read_netcdf
     type(SNCFile) :: file
