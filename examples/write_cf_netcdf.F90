@@ -5,32 +5,41 @@ subroutine cf_netcdf
     use SimpleNetCDF
     implicit none
 
+    character(*) :: filename
+
     ! variables to keep track of NetCDF things
     type(SNCFile) :: file
-    type(SNCVar) :: var, zvar
+    type(SNCVar) :: var
 
     ! grid and coordinate variables
     integer, parameter :: N_LAT = 3, N_LON = 4, N_LEVELS = 2, N_TIME = 2
     real*4 :: lat(N_LAT), lon(N_LON), time(N_TIME)
     real*4 :: d(N_LON, N_LAT, N_LEVELS, N_TIME)
+    integer :: year, month, day, hour, minute, second, tz_hours
+    character(*) :: t_unit
     character(60) :: time_units
+
 
     ! -- model writes data to variable d --
 
+
     ! Fill in the timestamp for the start of the data in this file.
-    ! The full format is "TIME_UNIT since YYYY-MM-DD HH:MM:SS +HH:MM" where
-    ! TIME_UNIT is usually one of: seconds, hours, days.  This is followed by
-    ! the date and time and a time zone offset.  If we use UTC, we can omit
-    ! the time zone and if we start at the beginning of the day we can omit
-    ! the time.  
-    time_units = "hours since 2012-02-03 00:00:00 -07:00" ! MST
-    time_units = "hours since 2012-02-03"                 ! shortened UTC
+    ! t_unit is usually one of: 'seconds', 'hours', 'days'.
+
+    ! Shortened UTC version, example: "seconds since 2012-02-03"
+    write(time_units, "A,' since ',I4.4,'-',I2.2,'-',I2.2)") &
+        t_unit, year, month, day
+
+    ! longer example with timezone offset (local time = MST), example:
+    ! "hours since 2012-02-03 03:00:00 -07:00"
+    write(time_units, "(A,' since ',I4.4,'-',I2.2,'-',I2.2,' ',I2.2,':',I2.2,':',I2.2,' ',I3,':00')") &
+        t_unit, year, month, day, hour, minute, second, tz_hours
 
     ! Create the file.  Arguments: file name, grid cell count in the X
     ! and Y dimensions, start time of the file data, the calendar to
     ! use, optional file title and source, and source file and line number
     ! preprocessor magic to help error reporting.
-    file = snc_cf_grid_create("cf.nc", N_LON, N_LAT, &
+    file = snc_cf_grid_create(filename, N_LON, N_LAT, &
         time_units, SNC_STANDARD_CAL, &
         ! optional
         title = "What Kind Of Data", source = "MyShinyProgram 1.0", &
@@ -42,8 +51,7 @@ subroutine cf_netcdf
     ! short and long names for the variable, vertical units, does the variable
     ! increase going "down" or "up"? and optional standard name and debugging
     ! info.
-    zvar = snc_cf_grid_vertical(file, N_LEVELS, "levels", "Levels", "hPa", &
-        "down", &
+    call snc_cf_grid_vertical(file, N_LEVELS, "levels", "Levels", "hPa", "down", &
         ! optional, helps with debugging
         src_file = __FILE__, src_line = __LINE__)
 
@@ -65,7 +73,7 @@ subroutine cf_netcdf
     call snc_enddef(file)
 
     ! now you need to write the coordinate variable data describing the grid
-    call snc_cf_write_coords(file, lon, lat, time)
+    call snc_cf_write_coords(file, lon, lat, levels, time)
 
     ! write the variable data.  If you defined more than one variable above,
     ! add other snc_write() statements for them too.
