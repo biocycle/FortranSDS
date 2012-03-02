@@ -50,10 +50,10 @@ program cf_nc
     if (attv /= "CF-1.6") print *, "Bad 'Conventions' value", trim(attv)
 
     call snc_get_global_att(file, "title", attv)
-    if (attv /= "test file")  print *, "Bad 'title' value", trim(attv)
+    if (attv /= "test file")  print *, "Bad 'title' value '", trim(attv), "'"
 
     call snc_get_global_att(file, "source", attv)
-    if (attv /= "some test program")  print *, "Bad 'source' value", trim(attv)
+    if (attv /= "some test program")  print *, "Bad 'source' value '", trim(attv), "'"
 
     lat_size = snc_get_dim(file, "lat")
     lon_size = snc_get_dim(file, "lon")

@@ -64,8 +64,10 @@ module SimpleNetCDF
     integer, parameter :: READ_MODE = NF90_SHARE
 #ifndef HAVE_NETCDF4
     integer, parameter :: WRITE_MODE = NF90_NOCLOBBER
+    integer, parameter :: OVERWRITE_MODE = NF90_CLOBBER
 #else
     integer, parameter :: WRITE_MODE = IOR(NF90_NOCLOBBER, NF90_HDF5)
+    integer, parameter :: OVERWRITE_MODE = IOR(NF90_CLOBBER, NF90_HDF5)
     integer, parameter :: SNC_DEFAULT_DEFLATE = 6
 #endif
 
@@ -114,20 +116,21 @@ contains
     ! - history: A list of programs that modified this file, what and when
     !     they did it.
     ! - institution: The name of the facility where the data was created.
-    function snc_cf_grid_create(filename, lon_size, lat_size, time_units, calendar, &
-        title, source, src_file, src_line)
+    function snc_cf_grid_create(filename, lon_size, lat_size, time_units, &
+        calendar, title, source, overwrite, src_file, src_line)
         character(*), intent(in) :: filename
         integer, intent(in) :: lat_size, lon_size
         character(*), intent(in) :: time_units
         character(*), intent(in) :: calendar
         character(*), intent(in), optional :: title, source
+        logical, intent(in), optional :: overwrite
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCFile) :: snc_cf_grid_create, file
         type(SNCVar) :: var, global_var
         integer :: lat_id, lon_id, time_id
 
-        file = snc_create(filename, src_file, src_line)
+        file = snc_create(filename, overwrite, src_file, src_line)
 
         ! dimensions
         lat_id = snc_def_dim(file, "lat", lat_size, src_file, src_line)
@@ -191,7 +194,7 @@ contains
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         integer :: z_id
-        type(SNCVar) :: var, snc_cf_grid_vertical
+        type(SNCVar) :: var
 
         z_id = snc_def_dim(file, name, z_size, src_file, src_line)
 
@@ -216,7 +219,6 @@ contains
         end if
 
         file%z_name = name
-        snc_cf_grid_vertical = var
     end subroutine snc_cf_grid_vertical
 
     ! Define a CF-compliant NetCDF variable.
@@ -370,15 +372,23 @@ contains
     end function snc_open
 
     ! Open a NetCDF file for writing
-    function snc_create(filename, src_file, src_line)
+    function snc_create(filename, overwrite, src_file, src_line)
         character(*), intent(in) :: filename
+        logical, intent(in), optional :: overwrite
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCFile) :: snc_create
         character(530) :: err_msg
+        integer :: mode
+
+        if (present(overwrite) .and. overwrite) then
+            mode = OVERWRITE_MODE
+        else
+            mode = WRITE_MODE
+        end if
 
         write(err_msg, "('creating ',A)") trim(filename)
-        call snc_handle_error(nf90_create(filename, WRITE_MODE, snc_create%ncid), &
+        call snc_handle_error(nf90_create(filename, mode, snc_create%ncid), &
             err_msg, src_file, src_line)
         snc_create%name = filename
     end function snc_create

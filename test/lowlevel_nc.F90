@@ -27,7 +27,7 @@ program lowlevel_nc
 
     ! CREATE THE FILE
 
-    file = snc_create("simple.nc")
+    file = snc_create("simple.nc", overwrite = .true.)
 
     if (file%name /= "simple.nc") stop "didn't copy filename"
 
