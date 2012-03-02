@@ -3,12 +3,12 @@ program no_file_line
     implicit none
 
     type(SNCFile) :: file
-    integer :: dimid
+    integer :: dim
 
     file%ncid = -1
     file%name = "nonexistent_file.nc"
 
-    dimid = snc_get_dim(file, "some_dim")
+    dim = snc_get_dim(file, "some_dim")
 
-    print *, dimid
+    print *, dim
 end program no_file_line

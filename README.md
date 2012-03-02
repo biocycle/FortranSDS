@@ -17,10 +17,86 @@ examine a NetCDf file which may prove useful if you are writing NetCDF
 handling code in C.
 
 
+Improved Error Handling and Reporting
+=====================================
+
+A major aim of Simple SDS is to improve the error reporting and
+handling of the NetCDF library.  Normally you will need to check every
+NetCDF function's status return code to see if an error occurred.  If
+it did, NetCDF isn't especially helpful, giving errors like "NetCDF:
+Not a valid ID".  The Simple SDS library keeps track of enough
+information to report the file, action attempted and other relevant
+information when reporting an error.  Example:
+
+Source code:
+
+     dimid = snc_get_dim(file, "some_dim")
+
+Resulting error in terminal window:
+
+     NetCDF: Not a valid ID
+       While: getting id for dimension 'some_dim' in nonexistent_file.nc
+
+With a little extra work, it can also report the source file and line
+number in your code that resulted in a NetCDF error:
+
+    test/snc_with_file_line.F90 line   13: NetCDF: Not a valid ID
+       While: getting id for dimension 'some_dim' in nonexistent_file.nc
+
+To do this properly requires the C preprocessor and some Makefile
+magic.  See below for more.
+
+
+Using Simple SDS
+================
+
+To use the Simple SDS NetCDF Fortran module, download this code to
+your computer, edit the Makefile if needed and get the code built.
+You may want to run the tests in the test/ directory.  Next, copy the
+simple_netcdf.F90 file into an appropriate place in your source tree.
+Then write or rewrite your NetCDF library calls with the replacement
+functions in the Simple SDS module.
+
+You may want to use the macros in simple_netcdf.inc to automatically
+add src_file=/src_line= arguments to Simple SDS function and
+subroutine calls.  These optional arguments let the library report
+where in your code an error came from.  If this sounds useful to you,
+there are additional steps you will need to take to use it in your
+program.  First you will need to add the simple_netcdf.inc header file to each of the source files that call Simple SDS routines:
+
+    #include "simple_netcdf.inc"
+
+This defines C Preprocessor macros that automatically add
+
+    src_file = __FILE__, src_line = __LINE__
+
+arguments to Simple SDS routines.  The C Preprocessor (for __FILE__
+and __LINE__ macros) has proven tricky to get to work with Fortran
+source code.  The Makefile here shows one solution:
+
+    .F90.o:
+    	$(CPP) $(FFLAGS) -w $< $*.f90
+    	$(F90) $(FFLAGS) -c $*.f90 -o $@ || (rm $*.f90; false)
+    	rm $*.f90
+
+This takes source files with one of the standard pre-processed
+extensions .F90 (commonly .F, .F90, .F95, .F03, .FOR, .FPP), runs it
+through the C PreProcessor writing the output to the non-preprocessed
+extension .f90, compiles the .f90 file, then makes sure the .f90 file
+gets deleted and the proper success/failure exit code is seen by make
+with some shell code.  Not overly difficult, but it requires that if
+you have a file with the .F90 extension, there must not also be a file
+of that name with the .f90 extension, which further assumes a
+case-sensitive filesystem.
+
+
 Examples
 ========
 
 Reading variables from a NetCDF file is quite simple.  You open the file, look up the variable then read it into an appropriate pointer array before closing the file:
+
+    ! optional
+    #include "simple_netcdf.inc"
 
     type(SNCFile) :: file
     type(SNCVar) :: t_var
@@ -70,4 +146,4 @@ Writing a CF-compliant NetCDF file is a little more complex:
     call snc_close(file)
 
 
-For more examples, see the files in the examples/ directory.
+For more details, see the files in the examples/ directory.
