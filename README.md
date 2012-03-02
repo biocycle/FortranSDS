@@ -22,17 +22,28 @@ Improved Error Handling and Reporting
 
 A major aim of Simple SDS is to improve the error reporting and
 handling of the NetCDF library.  Normally you will need to check every
-NetCDF function's status return code to see if an error occurred.  If
-it did, NetCDF isn't especially helpful, giving errors like "NetCDF:
-Not a valid ID".  The Simple SDS library keeps track of enough
-information to report the file, action attempted and other relevant
-information when reporting an error.  Example:
+NetCDF function's status return code to see if an error occurred.  Example:
+
+    call check( nf90_inq_dimid(ncid, "some_dim", dimid) )
+    .
+    .
+    .
+    subroutine check(status)
+      .
+      .
+      .
+
+If the call results in an error, you can get a description like
+"NetCDF: Not a valid ID" using nf90_strerror(status), but this has no
+context and leaves something to be desired.  The Simple SDS module
+keeps track of enough information to report the file, action attempted
+and other relevant information when reporting an error.  Example:
 
 Source code:
 
-     dimid = snc_get_dim(file, "some_dim")
+     some_dimid = snc_get_dimid(file, "some_dim")
 
-Resulting error in terminal window:
+Resulting error in terminal:
 
      NetCDF: Not a valid ID
        While: getting id for dimension 'some_dim' in nonexistent_file.nc
@@ -45,6 +56,11 @@ number in your code that resulted in a NetCDF error:
 
 To do this properly requires the C preprocessor and some Makefile
 magic.  See below for more.
+
+In any event, when a Simple SDS routine encounters an error, it is
+reported and +stop+ is called to halt the program.  Because you call
+Simple SDS routines directly, there is no extra code to check the
+error status.
 
 
 Using Simple SDS
