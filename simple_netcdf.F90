@@ -181,7 +181,7 @@ contains
     ! standard_name: optional. a name from
     !   http://cf-pcmdi.llnl.gov/documents/cf-standard-names/
     !   matching this variable.
-    function snc_cf_grid_vertical(file, z_size, name, long_name, units, &
+    subroutine snc_cf_grid_vertical(file, z_size, name, long_name, units, &
         positive, standard_name, src_file, src_line)
 
         type(SNCFile), intent(inout) :: file
@@ -217,7 +217,7 @@ contains
 
         file%z_name = name
         snc_cf_grid_vertical = var
-    end function snc_cf_grid_vertical
+    end subroutine snc_cf_grid_vertical
 
     ! Define a CF-compliant NetCDF variable.
     !
