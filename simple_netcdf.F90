@@ -69,13 +69,10 @@ module SimpleNetCDF
     integer, parameter :: SNC_FLOAT     = NF90_FLOAT
     integer, parameter :: SNC_DOUBLE    = NF90_DOUBLE
 
-    integer, parameter :: READ_MODE = NF90_SHARE
-#ifndef HAVE_NETCDF4
-    integer, parameter :: WRITE_MODE = NF90_NOCLOBBER
-    integer, parameter :: OVERWRITE_MODE = NF90_CLOBBER
-#else
-    integer, parameter :: WRITE_MODE = IOR(NF90_NOCLOBBER, NF90_HDF5)
-    integer, parameter :: OVERWRITE_MODE = IOR(NF90_CLOBBER, NF90_HDF5)
+    integer, parameter :: SNC_READ_MODE = NF90_SHARE
+    integer, parameter :: SNC_WRITE_MODE = NF90_NOCLOBBER
+    integer, parameter :: SNC_OVERWRITE_MODE = NF90_CLOBBER
+#ifdef HAVE_NETCDF4
     integer, parameter :: SNC_DEFAULT_DEFLATE = 6
 #endif
 
@@ -125,20 +122,20 @@ contains
     !     they did it.
     ! - institution: The name of the facility where the data was created.
     function snc_cf_grid_create(filename, lon_size, lat_size, time_units, &
-        calendar, title, source, overwrite, src_file, src_line)
+        calendar, title, source, overwrite, nc3_file, src_file, src_line)
         character(*), intent(in) :: filename
         integer, intent(in) :: lat_size, lon_size
         character(*), intent(in) :: time_units
         character(*), intent(in) :: calendar
         character(*), intent(in), optional :: title, source
-        logical, intent(in), optional :: overwrite
+        logical, intent(in), optional :: overwrite, nc3_file
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCFile) :: snc_cf_grid_create, file
         type(SNCVar) :: var, global_var
         integer :: lat_id, lon_id, time_id
 
-        file = snc_create(filename, overwrite, src_file, src_line)
+        file = snc_create(filename, overwrite, nc3_file, src_file, src_line)
 
         ! dimensions
         lat_id = snc_def_dim(file, "lat", lat_size, src_file, src_line)
@@ -378,15 +375,15 @@ contains
         character(530) :: err_msg
 
         write(err_msg, "('opening ',A)") trim(filename)
-        call snc_handle_error(nf90_open(filename, READ_MODE, snc_open%ncid), &
+        call snc_handle_error(nf90_open(filename, SNC_READ_MODE, snc_open%ncid), &
             err_msg, src_file, src_line)
         snc_open%name = filename
     end function snc_open
 
     ! Open a NetCDF file for writing
-    function snc_create(filename, overwrite, src_file, src_line)
+    function snc_create(filename, overwrite, nc3_file, src_file, src_line)
         character(*), intent(in) :: filename
-        logical, intent(in), optional :: overwrite
+        logical, intent(in), optional :: overwrite, nc3_file
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCFile) :: snc_create
@@ -394,10 +391,25 @@ contains
         integer :: mode
 
         if (present(overwrite) .and. overwrite) then
-            mode = OVERWRITE_MODE
+            mode = SNC_OVERWRITE_MODE
         else
-            mode = WRITE_MODE
+            mode = SNC_WRITE_MODE
         end if
+
+#ifdef HAVE_NETCDF4
+        if (.not. present(nc3_file) .or. .not. nc3_file) then
+            mode = IOR(mode, NF90_HDF5) ! use an HDF5 format file
+        end if
+#else
+        if (present(nc3_file) .and. .not. nc3_file) then
+            if (present(src_file) .and. present(src_line)) then
+                print "(A,' line',I5,': in snc_create(): Warning: nc3_file must not be .false. for file ''',A,'''')", &
+                    trim(src_file), src_line, trim(filename)
+            else
+                print "('in snc_create(): Warning: nc3_file must not be .false. for file ''',A,'''')", trim(filename)
+            end if
+        end if
+#endif
 
         write(err_msg, "('creating ',A)") trim(filename)
         call snc_handle_error(nf90_create(filename, mode, snc_create%ncid), &
