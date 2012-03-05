@@ -26,6 +26,10 @@ module SimpleNetCDF
         integer :: ndims, dims(4) ! number of dimensions and dimension sizes
     end type SNCVar
 
+    interface snc_get_dim
+        module procedure snc_get_dim_by_id, snc_get_dim_by_name
+    end interface snc_get_dim
+
     interface snc_cf_write_coords
         module procedure snc_cf_write_coords2f, snc_cf_write_coords2d
         module procedure snc_cf_write_coords3f, snc_cf_write_coords3d
@@ -395,13 +399,34 @@ contains
             err_msg, src_file, src_line)
     end function snc_get_dimid
 
-    ! Returns the size of the given dimension
-    function snc_get_dim(file, dimname, src_file, src_line)
+    ! Returns the size of the ID'd dimension
+    function snc_get_dim_by_id(file, dimid, src_file, src_line)
+        type(SNCFile), intent(in) :: file
+        integer, intent(in) :: dimid
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_get_dim_by_id
+        character(128) :: dimname
+        character(700) :: err_msg
+
+        write(err_msg, "('getting name for dimid ',I5,'in ',A)") &
+            dimid, trim(file%name)
+        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, dimname), &
+            err_msg, src_file, src_line)
+
+        write(err_msg, "('getting length for dimension ''',A,''' in ',A)") &
+            trim(dimname), trim(file%name)
+        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, len = snc_get_dim_by_id), &
+            err_msg, src_file, src_line)
+    end function snc_get_dim_by_id
+
+    ! Returns the size of the named dimension
+    function snc_get_dim_by_name(file, dimname, src_file, src_line)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: dimname
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
-        integer :: snc_get_dim
+        integer :: snc_get_dim_by_name
         integer :: dimid
         character(700) :: err_msg
 
@@ -409,9 +434,9 @@ contains
 
         write(err_msg, "('getting length for dimension ''',A,''' in ',A)") &
             trim(dimname), trim(file%name)
-        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, len = snc_get_dim), &
+        call snc_handle_error(nf90_inquire_dimension(file%ncid, dimid, len = snc_get_dim_by_name), &
             err_msg, src_file, src_line)
-    end function snc_get_dim
+    end function snc_get_dim_by_name
 
     ! Defines a dimension with the given name and size, then returns its id
     ! for use in defining variables later.
@@ -493,6 +518,7 @@ contains
         integer, intent(in), optional :: src_line
         type(SNCVar) :: snc_def_var
         character(700) :: err_msg
+        integer :: i, ndims
 
         write(err_msg, "('defining variable ''',A,''' in ',A)") trim(varname), trim(file%name)
         call snc_handle_error( &
@@ -502,6 +528,11 @@ contains
 #endif
             ), err_msg, src_file, src_line)
         snc_def_var%name = varname
+        ndims = size(dimids)
+        snc_def_var%ndims = ndims
+        do i = 1, ndims
+            snc_def_var%dims(i) = snc_get_dim(file, dimids(i), src_file, src_line)
+        end do
     end function snc_def_var
 
 
