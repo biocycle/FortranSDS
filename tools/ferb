@@ -1,0 +1,44 @@
+#!/usr/bin/env ruby
+
+require 'erb'
+
+def insert_pound_line(infile)
+  buf = ''
+  last_line_erb = false
+  File.open(infile) do |fin|
+    fin.each_line do |line|
+      if last_line_erb and line !~ /^\s*%/
+        last_line_erb = false
+        buf << "#line #{fin.lineno} \"#{infile}\"\n"
+      end
+
+      buf << line
+
+      if line =~ /%>\s*(?:!.*)?$/
+        buf << "#line #{fin.lineno + 1} \"#{infile}\"\n"
+      elsif line =~ /^\s*%/
+        last_line_erb = true
+      end
+    end
+  end
+  buf
+end
+
+USAGE = "ferb INFILE [>OUTFILE]"
+
+if ARGV.length != 1
+   puts USAGE
+   exit -1
+end
+
+# get file contents
+if ARGV[0] =~ /\.(?:F|F90|F95|F03|FOR|FTN|fpp|FPP|CUF)\.erb$/
+  # insert #line CPP directives after erb blocks for preprocessed input files
+  text = insert_pound_line(ARGV[0])
+else
+  text = File.read(ARGV[0])
+end
+
+# process template
+template = ERB.new(text, nil, '%')
+puts template.result(binding)

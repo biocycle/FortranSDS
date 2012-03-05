@@ -50,7 +50,7 @@ NC2CODE_OBJS = nc2code.o generate_f90.o sds_nc.o skiplist.o util.o
 all: test
 
 simple_netcdf.F90: simple_netcdf.F90.erb
-	erb $< >$@
+	tools/ferb $< >$@
 
 nc2code: $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
