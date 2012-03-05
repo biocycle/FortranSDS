@@ -27,6 +27,9 @@ subroutine read_netcdf
     ! Read the variable data into t.
     call snc_read(file, t_var, t)
 
+    ! Remember to deallocate t when you're done with it
+    deallocate(t)
+
     ! Close the file once we're done with it.
     call snc_close(file)
 
