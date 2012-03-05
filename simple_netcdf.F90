@@ -262,10 +262,11 @@ contains
         type(SNCVar) :: var, snc_cf_def_var
 
         if (present(dimids)) then
-            var = snc_def_var(file, varname, type, dimids, src_file, src_line)
+            var = snc_def_var(file, varname, type, dimids, &
+                src_file = src_file, src_line = src_line)
         else
             var = snc_def_var(file, varname, type, file%cfdimids(1:file%ndims), &
-                src_file, src_line)
+                src_file = src_file, src_line = src_line)
         end if
 
         call snc_put_att(file, var, "long_name", long_name, src_file, src_line)
@@ -546,22 +547,32 @@ contains
 
     ! Define a variable for the NetCDF file with the given name and type; the
     ! dimids are the values returned by snc_def_dim.
-    function snc_def_var(file, varname, vartype, dimids, src_file, src_line)
+    function snc_def_var(file, varname, vartype, dimids, def_lev, src_file, src_line)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: varname
         integer, intent(in) :: vartype
         integer, intent(in), dimension(:) :: dimids
+        integer, intent(in), optional :: def_lev
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCVar) :: snc_def_var
         character(700) :: err_msg
         integer :: i, ndims
+#ifdef HAVE_NETCDF4
+        integer :: level
+
+        if (present(def_lev)) then
+            level = def_lev
+        else
+            level = SNC_DEFAULT_DEFLATE
+        end if
+#endif
 
         write(err_msg, "('defining variable ''',A,''' in ',A)") trim(varname), trim(file%name)
         call snc_handle_error( &
             nf90_def_var(file%ncid, varname, vartype, dimids, snc_def_var%id &
 #ifdef HAVE_NETCDF4
-              , deflate_level = SNC_DEFAULT_DEFLATE &
+              , deflate_level = level &
 #endif
             ), err_msg, src_file, src_line)
         snc_def_var%name = varname
