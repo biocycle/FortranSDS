@@ -5,3 +5,4 @@ test/snc_no_file_line
 test/snc_with_file_line
 test/cf_nc
 nc2code/nc2code
+test/timestep_nc

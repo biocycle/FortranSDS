@@ -49,11 +49,14 @@ NC2CODE_OBJS = nc2code.o generate_f90.o sds_nc.o skiplist.o util.o
 
 all: test
 
+simple_netcdf.F90: simple_netcdf.F90.erb
+	erb $< >$@
+
 nc2code: $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
 
 test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line \
-	test/cf_nc test/cf_nc_z
+	test/cf_nc test/cf_nc_z test/timestep_nc
 
 test/lowlevel_nc: simple_netcdf.o test/lowlevel_nc.o
 	$(F90) -o $@ $^ $(LDFLAGS)
@@ -70,9 +73,9 @@ test/cf_nc: simple_netcdf.o test/cf_nc.o
 test/cf_nc_z: simple_netcdf.o test/cf_nc_z.o
 	$(F90) -o $@ $^ $(LDFLAGS)
 
-simple_netcdf.F90: simple_netcdf.F90.erb
-	erb $< >$@
+test/timestep_nc: simple_netcdf.o test/timestep_nc.o
+	$(F90) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f *~ *.o *.mod simple.nc cf.nc
-	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc
+	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc test/timestep_nc

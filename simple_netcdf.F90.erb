@@ -16,14 +16,14 @@ module SimpleNetCDF
     type SNCFile
         integer :: ncid
         character(512) :: name
-        integer :: ndims, cfdimids(4)
+        integer :: ndims, cfdimids(5)
         character(32) :: z_name ! name of the vertical dimension
     end type SNCFile
 
     type SNCVar
         integer :: id
         character(128) :: name
-        integer :: ndims, dims(4) ! number of dimensions and dimension sizes
+        integer :: ndims, dims(6) ! number of dimensions and dimension sizes
     end type SNCVar
 
     interface snc_get_dim
@@ -314,13 +314,13 @@ contains
         type(SNCVar) :: var
 
         var = snc_inq_var(file, "lat", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lat, src_file, src_line)
+        call snc_write(file, var, lat, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "lon", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lon, src_file, src_line)
+        call snc_write(file, var, lon, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, time, src_file, src_line)
+        call snc_write(file, var, time, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords2<%= t %>
 
 
@@ -334,7 +334,7 @@ contains
         call snc_cf_write_coords(file, lon, lat, time, src_file, src_line)
 
         z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
-        call snc_write(file, z_var, z, src_file, src_line)
+        call snc_write(file, z_var, z, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords3<%= t %>
 
 
@@ -541,19 +541,33 @@ contains
 
 % (1..4).each do |n|
 %   "ifd".each_char do |t|
-    subroutine snc_read<%= n %><%= t %>(file, var, data, src_file, src_line)
+    subroutine snc_read<%= n %><%= t %>(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         <%= TYPE[t] %>, pointer :: data(<%= ([':'] * n).join(',') %>)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(<%= n + 1 %>) :: start, count
         character(700) :: err_msg
 
         allocate(data(<%= (1..n).map {|i| "var%dims(#{i})"}.join(', ') %>))
         write(err_msg, "('reading <%= n %>d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= <%= n + 1 %>) stop "expected <%= n + 1 %> dimensional data array to read into"
+            start(:<%= n %>) = 1
+            start(<%= n + 1 %>) = timestep
+            count(:<%= n %>) = var%dims(:<%= n %>)
+            count(<%= n + 1 %>) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read<%= n %><%= t %>
 
 
@@ -565,18 +579,31 @@ contains
 
 % (1..4).each do |n|
 %   "ifd".each_char do |t|
-    subroutine snc_write<%= n %><%= t %>(file, var, data, src_file, src_line)
+    subroutine snc_write<%= n %><%= t %>(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         <%= TYPE[t] %>, intent(in), dimension(<%= ([':'] * n).join(',') %>) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(<%= n + 1 %>) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= <%= n + 1 %>) stop "expected <%= n + 1 %> dimensional data array to write from"
+            start(:<%= n %>) = 1
+            start(<%= n + 1 %>) = timestep
+            count(:<%= n %>) = var%dims(:<%= n %>)
+            count(<%= n + 1 %>) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing <%= n %>d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write<%= n %><%= t %>
 
 

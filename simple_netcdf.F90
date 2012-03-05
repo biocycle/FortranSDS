@@ -11,14 +11,14 @@ module SimpleNetCDF
     type SNCFile
         integer :: ncid
         character(512) :: name
-        integer :: ndims, cfdimids(4)
+        integer :: ndims, cfdimids(5)
         character(32) :: z_name ! name of the vertical dimension
     end type SNCFile
 
     type SNCVar
         integer :: id
         character(128) :: name
-        integer :: ndims, dims(4) ! number of dimensions and dimension sizes
+        integer :: ndims, dims(6) ! number of dimensions and dimension sizes
     end type SNCVar
 
     interface snc_get_dim
@@ -308,13 +308,13 @@ contains
         type(SNCVar) :: var
 
         var = snc_inq_var(file, "lat", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lat, src_file, src_line)
+        call snc_write(file, var, lat, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "lon", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lon, src_file, src_line)
+        call snc_write(file, var, lon, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, time, src_file, src_line)
+        call snc_write(file, var, time, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords2f
 
 
@@ -328,7 +328,7 @@ contains
         call snc_cf_write_coords(file, lon, lat, time, src_file, src_line)
 
         z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
-        call snc_write(file, z_var, z, src_file, src_line)
+        call snc_write(file, z_var, z, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords3f
 
 
@@ -340,13 +340,13 @@ contains
         type(SNCVar) :: var
 
         var = snc_inq_var(file, "lat", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lat, src_file, src_line)
+        call snc_write(file, var, lat, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "lon", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, lon, src_file, src_line)
+        call snc_write(file, var, lon, src_file = src_file, src_line = src_line)
 
         var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
-        call snc_write(file, var, time, src_file, src_line)
+        call snc_write(file, var, time, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords2d
 
 
@@ -360,7 +360,7 @@ contains
         call snc_cf_write_coords(file, lon, lat, time, src_file, src_line)
 
         z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
-        call snc_write(file, z_var, z, src_file, src_line)
+        call snc_write(file, z_var, z, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords3d
 
 
@@ -564,198 +564,366 @@ contains
 
     ! READ VAR SECTION ---
 
-    subroutine snc_read1i(file, var, data, src_file, src_line)
+    subroutine snc_read1i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, pointer :: data(:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1)))
         write(err_msg, "('reading 1d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to read into"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read1i
 
 
-    subroutine snc_read1f(file, var, data, src_file, src_line)
+    subroutine snc_read1f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, pointer :: data(:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1)))
         write(err_msg, "('reading 1d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to read into"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read1f
 
 
-    subroutine snc_read1d(file, var, data, src_file, src_line)
+    subroutine snc_read1d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, pointer :: data(:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1)))
         write(err_msg, "('reading 1d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to read into"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read1d
 
 
 
-    subroutine snc_read2i(file, var, data, src_file, src_line)
+    subroutine snc_read2i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2)))
         write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to read into"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read2i
 
 
-    subroutine snc_read2f(file, var, data, src_file, src_line)
+    subroutine snc_read2f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2)))
         write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to read into"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read2f
 
 
-    subroutine snc_read2d(file, var, data, src_file, src_line)
+    subroutine snc_read2d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2)))
         write(err_msg, "('reading 2d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to read into"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read2d
 
 
 
-    subroutine snc_read3i(file, var, data, src_file, src_line)
+    subroutine snc_read3i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3)))
         write(err_msg, "('reading 3d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to read into"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read3i
 
 
-    subroutine snc_read3f(file, var, data, src_file, src_line)
+    subroutine snc_read3f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3)))
         write(err_msg, "('reading 3d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to read into"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read3f
 
 
-    subroutine snc_read3d(file, var, data, src_file, src_line)
+    subroutine snc_read3d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3)))
         write(err_msg, "('reading 3d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to read into"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read3d
 
 
 
-    subroutine snc_read4i(file, var, data, src_file, src_line)
+    subroutine snc_read4i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
         write(err_msg, "('reading 4d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to read into"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read4i
 
 
-    subroutine snc_read4f(file, var, data, src_file, src_line)
+    subroutine snc_read4f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
         write(err_msg, "('reading 4d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to read into"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read4f
 
 
-    subroutine snc_read4d(file, var, data, src_file, src_line)
+    subroutine snc_read4d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
 
         allocate(data(var%dims(1), var%dims(2), var%dims(3), var%dims(4)))
         write(err_msg, "('reading 4d int variable ''',A,''' in ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to read into"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data, &
+                start, count), err_msg, src_file, src_line)
+        else
+            call snc_handle_error(nf90_get_var(file%ncid, var%id, data), &
+                err_msg, src_file, src_line)
+        end if
     end subroutine snc_read4d
 
 
@@ -763,186 +931,342 @@ contains
 
     ! WRITE VAR SECTION ---
 
-    subroutine snc_write1i(file, var, data, src_file, src_line)
+    subroutine snc_write1i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, intent(in), dimension(:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to write from"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 1d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1i
 
 
-    subroutine snc_write1f(file, var, data, src_file, src_line)
+    subroutine snc_write1f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, intent(in), dimension(:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to write from"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 1d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1f
 
 
-    subroutine snc_write1d(file, var, data, src_file, src_line)
+    subroutine snc_write1d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, intent(in), dimension(:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(2) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 2) stop "expected 2 dimensional data array to write from"
+            start(:1) = 1
+            start(2) = timestep
+            count(:1) = var%dims(:1)
+            count(2) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 1d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1d
 
 
 
-    subroutine snc_write2i(file, var, data, src_file, src_line)
+    subroutine snc_write2i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, intent(in), dimension(:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to write from"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2i
 
 
-    subroutine snc_write2f(file, var, data, src_file, src_line)
+    subroutine snc_write2f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, intent(in), dimension(:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to write from"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2f
 
 
-    subroutine snc_write2d(file, var, data, src_file, src_line)
+    subroutine snc_write2d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, intent(in), dimension(:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(3) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 3) stop "expected 3 dimensional data array to write from"
+            start(:2) = 1
+            start(3) = timestep
+            count(:2) = var%dims(:2)
+            count(3) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 2d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2d
 
 
 
-    subroutine snc_write3i(file, var, data, src_file, src_line)
+    subroutine snc_write3i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, intent(in), dimension(:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to write from"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 3d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3i
 
 
-    subroutine snc_write3f(file, var, data, src_file, src_line)
+    subroutine snc_write3f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, intent(in), dimension(:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to write from"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 3d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3f
 
 
-    subroutine snc_write3d(file, var, data, src_file, src_line)
+    subroutine snc_write3d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, intent(in), dimension(:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(4) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 4) stop "expected 4 dimensional data array to write from"
+            start(:3) = 1
+            start(4) = timestep
+            count(:3) = var%dims(:3)
+            count(4) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 3d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3d
 
 
 
-    subroutine snc_write4i(file, var, data, src_file, src_line)
+    subroutine snc_write4i(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         integer, intent(in), dimension(:,:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to write from"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 4d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4i
 
 
-    subroutine snc_write4f(file, var, data, src_file, src_line)
+    subroutine snc_write4f(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*4, intent(in), dimension(:,:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to write from"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 4d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4f
 
 
-    subroutine snc_write4d(file, var, data, src_file, src_line)
+    subroutine snc_write4d(file, var, data, timestep, &
+        src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
         real*8, intent(in), dimension(:,:,:,:) :: data
+        integer, intent(in), optional :: timestep
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
+        integer, dimension(5) :: start, count
         character(700) :: err_msg
+        integer :: status
 
+        if (present(timestep)) then
+            if (var%ndims /= 5) stop "expected 5 dimensional data array to write from"
+            start(:4) = 1
+            start(5) = timestep
+            count(:4) = var%dims(:4)
+            count(5) = 1
+            status = nf90_put_var(file%ncid, var%id, data, start, count)
+        else
+            status = nf90_put_var(file%ncid, var%id, data)
+        end if
         write(err_msg, "('writing 4d int variable ''',A,''' to ',A)") &
             trim(var%name), trim(file%name)
-        call snc_handle_error(nf90_put_var(file%ncid, var%id, data), &
-            err_msg, src_file, src_line)
+        call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4d
 
 
