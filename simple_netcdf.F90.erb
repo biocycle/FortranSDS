@@ -564,6 +564,7 @@ contains
 
 % (1..4).each do |n|
 %   "ifd".each_char do |t|
+    ! :nodoc:
     subroutine snc_read<%= n %><%= t %>(file, var, data, timestep, &
         src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -602,6 +603,7 @@ contains
 
 % (1..4).each do |n|
 %   "ifd".each_char do |t|
+    ! :nodoc:
     subroutine snc_write<%= n %><%= t %>(file, var, data, timestep, &
         src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -638,6 +640,7 @@ contains
 
     ! Read an attribute from the NetCDF file
 % %w(_str i f d).each do |t|
+    ! :nodoc:
     subroutine snc_get_att<%= t %>(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -654,6 +657,7 @@ contains
     end subroutine snc_get_att<%= t %>
 
 
+    ! :nodoc:
     subroutine snc_get_gatt<%= t %>(file, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: attname
@@ -673,6 +677,7 @@ contains
 
     ! Write an attribute to the NetCDF file.
 % %w(_str i f d).each do |t|
+    ! :nodoc:
     subroutine snc_put_att<%= t %>(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
         type(SNCVar), intent(in) :: var
@@ -689,6 +694,7 @@ contains
     end subroutine snc_put_att<%= t %>
 
 
+    ! :nodoc:
     subroutine snc_put_gatt<%= t %>(file, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
         character(*), intent(in) :: attname
