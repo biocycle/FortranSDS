@@ -44,6 +44,38 @@ end
 
 class Routine < WithMemb
   attr_accessor :params
+
+  # remove local vars from members list
+  def filter_locals!
+    # unwrap lines
+    lines = []
+    i = 0
+    while i < @members.length
+      if @members[i] =~ /(&\s*)$/
+        lines << @members[i][0...-$1.length] + @members[i + 1]
+        i += 2
+      else
+        lines << @members[i]
+        i += 1
+      end
+    end
+
+    # split into type and vars, then keep params or fun names
+    decls = []
+    lines.each do |line|
+      line =~ /(.*)::(.*)/
+      type,vars = $1.strip,$2.comment_strip
+      vars = vars.split(/\s*,\s*/).each do |var|
+        var =~ /(\w[\w\d]*)/
+        varname = $1
+        if @params.member?(varname) or (Fun === self && varname == @name)
+          decls << [type, var]
+        end
+      end
+    end
+
+    @members = decls
+  end
 end
 
 class Sub < Routine
@@ -82,6 +114,7 @@ def main
   $types.delete_if {|r| r.nodoc? }
   $interfaces.delete_if {|r| r.nodoc? }
   $routines.delete_if {|r| r.nodoc? }
+  $routines.each {|r| r.filter_locals! }
 
   $modules.each do |mod|
     puts mod.comment_block if mod.comment_block
@@ -117,7 +150,7 @@ def main
     puts r.comment_block if r.comment_block
     puts "#{r.kind} #{r.name}(#{r.params.join(', ')})"
     r.members.each do |member|
-      puts "    #{member}"
+      puts "    #{member.first} :: #{member.last}"
     end
   end
 end
@@ -141,16 +174,16 @@ def parse(fin)
   context = []
   comment_block = ''
   continued = false
+  was_var_decl = false
+  was_routine = false
 
   fin.each_line do |line|
-#puts "line #{line.inspect}"
-
     case line
     when /^\s*end\s*(?:(\w+)(?:\s+(\w[\w\d]*))?)?/i
       what,name = $1.downcase,$2
       parse_end(context, line, what, name)
       context.pop
-    when /^\s*program\s+(\w[\w\d]+)/i
+    when /^\s*program\s+(\w[\w\d]*)/i
       context.push Prog.new(fin.path, fin.lineno, context, comment_block, $1)
       $programs << context.last
     when /^\s*module\s+(\w[\w\d]+)(?:\s+(\w[\w\d]*(?:\s*,\s*\w[\w\d]*)*))?/i
@@ -160,24 +193,26 @@ def parse(fin)
         unless Iface === intf
           raise "Parse error expected interface procedure list in #{line}"
         end
-        intf.members = procs.scan(/\w[\w\d]+/)
+        intf.members = procs.scan(/\w[\w\d]*/)
       else
         context.push Mod.new(fin.path, fin.lineno, context, comment_block, name)
         $modules << context.last
       end
-    when /^\s*interface\s+(\w[\w\d]+)/i
+    when /^\s*interface\s+(\w[\w\d]*)/i
       context.push Iface.new(fin.path, fin.lineno, context, comment_block, $1)
       $interfaces << context.last
-    when /^\s*function\s+(\w[\w\d]+)\s*\(([^)&]*)/i
+    when /^\s*function\s+(\w[\w\d]*)\s*\(([^)&]*)/i
       name,params = $1,$2
       context.push Fun.new(fin.path, fin.lineno, context, comment_block, name)
       $routines << context.last
-      context.last.params = params.scan(/\w[\w\d]+/)
-    when /^\s*subroutine\s+(\w[\w\d]+)\s*\(([^)&]*)/i
+      context.last.params = params.scan(/\w[\w\d]*/)
+      was_routine = true
+    when /^\s*subroutine\s+(\w[\w\d]*)\s*\(([^)&]*)/i
       name,params = $1,$2
       context.push Sub.new(fin.path, fin.lineno, context, comment_block, name)
       $routines << context.last
-      context.last.params = params.scan(/\w[\w\d]+/)
+      context.last.params = params.scan(/\w[\w\d]*/)
+      was_routine = true
     when /^\s*type\s+(\w[\w\d]*)/i
       context.push Type.new(fin.path, fin.lineno, context, comment_block, $1)
       $types << context.last
@@ -199,11 +234,15 @@ def parse(fin)
     when /^\s*(\w[\w\d]*(?:\s*,\s*\w[\w\d]*)*)/i
       if continued
         cl = context.last
-        m = line.scan(/\w[\w\d]+/)
+        m = line.scan(/\w[\w\d]*/)
         if Iface === cl
           cl.members += m
-        elsif cl.respond_to?(:params)
-          cl.params += m
+        elsif Routine === cl
+          if was_var_decl
+            cl.members << line.comment_strip
+          elsif was_routine
+            cl.params += m
+          end
         end
       end
     end
@@ -216,6 +255,10 @@ def parse(fin)
     end
 
     continued = (line =~ /&\s*$/)
+    was_var_decl = (line =~ /::/)
+    if was_var_decl
+      was_routine = false
+    end
   end
 end
 
