@@ -77,15 +77,25 @@ def main
     File.open(infile) {|fin| parse(fin) }
   end
 
+  $modules.delete_if {|r| r.nodoc? }
+  $programs.delete_if {|r| r.nodoc? }
+  $types.delete_if {|r| r.nodoc? }
+  $interfaces.delete_if {|r| r.nodoc? }
   $routines.delete_if {|r| r.nodoc? }
 
   $modules.each do |mod|
-    puts mod.comment_block
+    puts mod.comment_block if mod.comment_block
     puts "module #{mod.name}"
+  end
+
+  $programs.each do |prog|
+    puts prog.comment_block if prog.comment_block
+    puts "program #{prog.name}"
   end
 
   $types.each do |type|
     puts
+    puts type.comment_block if type.comment_block
     puts "type #{type.name}"
     type.members.each do |member|
       puts "    #{member}"
@@ -93,10 +103,22 @@ def main
     puts "end type #{type.name}"
   end
 
+  $interfaces.each do |intf|
+    puts
+    puts intf.comment_block if intf.comment_block
+    puts "interface #{intf.name}"
+    intf.members.each do |member|
+      puts "    #{member}"
+    end
+  end
+
   $routines.each do |r|
     puts
     puts r.comment_block if r.comment_block
     puts "#{r.kind} #{r.name}(#{r.params.join(', ')})"
+    r.members.each do |member|
+      puts "    #{member}"
+    end
   end
 end
 
@@ -116,9 +138,6 @@ end
 def parse(fin)
   outfile = "#{$outdir}/#{fin.path}.html"
 
-  # parse code features (routines, variables, types modules, etc.)
-  # look for comment blocks and try to link them with routines
-
   context = []
   comment_block = ''
   continued = false
@@ -134,10 +153,14 @@ def parse(fin)
     when /^\s*program\s+(\w[\w\d]+)/i
       context.push Prog.new(fin.path, fin.lineno, context, comment_block, $1)
       $programs << context.last
-    when /^\s*module\s+(\w[\w\d]+)/i
-      name = $1
+    when /^\s*module\s+(\w[\w\d]+)(?:\s+(\w[\w\d]*(?:\s*,\s*\w[\w\d]*)*))?/i
+      name,procs = $1,$2
       if name =~ /^procedure$/i
-        # XXX if in interface, add to members
+        intf = context.last
+        unless Iface === intf
+          raise "Parse error expected interface procedure list in #{line}"
+        end
+        intf.members = procs.scan(/\w[\w\d]+/)
       else
         context.push Mod.new(fin.path, fin.lineno, context, comment_block, name)
         $modules << context.last
@@ -170,12 +193,18 @@ def parse(fin)
       context.push 'where'
     when /^\s*(?:integer|real|double|complex|character|logical|(?:type\()).*::.+/i
       t = context.last
-      if Type === t # member declaration
+      if t.respond_to?(:members)
         t.members << line.comment_strip
       end
-    when /^\s*(?:(?:\w[\w\d]+)\s*,\s*)*(?:\w[\w\d]+)\s*[)&]\s*$/i
-      if continued and context.last.respond_to?(:params)
-        context.last.params += line.scan(/\w[\w\d]+/)
+    when /^\s*(\w[\w\d]*(?:\s*,\s*\w[\w\d]*)*)/i
+      if continued
+        cl = context.last
+        m = line.scan(/\w[\w\d]+/)
+        if Iface === cl
+          cl.members += m
+        elsif cl.respond_to?(:params)
+          cl.params += m
+        end
       end
     end
 
