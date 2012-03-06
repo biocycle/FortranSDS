@@ -19,91 +19,6 @@ class FortranElement
   def nodoc?
     @comment_block and @comment_block.any? {|c| c =~ /^!\s*:nodoc:/i }
   end
-
-  def comment_block_to_html
-    return nil unless @comment_block
-
-    # scan for smallest indentation
-    min_indent = 1000
-    @comment_block.each do |l|
-      l =~ /^!(\s*)/
-      indent = $1.length
-      min_indent = indent if indent < min_indent
-    end
-    min_indent += 1 # for '!' comment character
-
-    # group by param:s and paragraphs
-    groups = []
-    last_was = nil
-    param_indent = nil
-    @comment_block.each do |l|
-      case l
-      when /^!(\s*)(\w[\w\d]*): /
-        # param: section
-        param_indent = $1.length
-        groups << l[param_indent + 1..-1].split(': ', 2)
-        last_was = :param
-      when /^!(\s*)$/ # end of paragraph
-        last_was = nil
-      else
-        l =~ /^!(\s*)/
-        indent = $1.length
-        if last_was == :param and indent > param_indent
-          # continue param: section
-          groups.last << l[param_indent..-1]
-        else
-          if last_was == :paragraph
-            groups.last << ' ' # space separator between joined lines
-          else
-            groups << '' # new paragraph
-          end
-          groups.last << l[min_indent..-1].rstrip
-          last_was = :paragraph
-        end
-      end
-    end
-
-    # unindent and join param: lines
-    groups = groups.map do |group|
-      if String === group
-        group
-      elsif group.length == 2
-        [group[0], group[1].strip]
-      else
-        param_name = group.shift
-        s = group.shift.strip
-        cont_indent = 1000
-        group.each do |l|
-          l =~ /^(\s+)/
-          indent = $1.length
-          cont_indent = indent if indent < cont_indent
-        end
-        last_was_block = nil
-        group.each do |l|
-          l =~ /^(\s+)/
-          indent = $1.length
-          if indent > cont_indent # block-indent
-            s << "\n\n" unless last_was_block
-            s << l[cont_indent..-1].rstrip + "\n"
-            last_was_block = true
-          else
-            if last_was_block
-              s << "\n"
-            else
-              s << ' '
-            end
-            s << l.strip
-            last_was_block = nil
-          end
-        end
-        [param_name, s]
-      end
-    end
-
-    # feed resulting string through markdown -> html
-
-    groups.inspect
-  end
 end
 
 class Mod < FortranElement
@@ -202,18 +117,18 @@ def main
   $routines.each {|r| r.filter_locals! }
 
   $modules.each do |mod|
-    puts mod.comment_block_to_html if mod.comment_block
+    puts format_comment_block mod.comment_block if mod.comment_block
     puts "module #{mod.name}"
   end
 
   $programs.each do |prog|
-    puts prog.comment_block_to_html if prog.comment_block
+    puts format_comment_block prog.comment_block if prog.comment_block
     puts "program #{prog.name}"
   end
 
   $types.each do |type|
     puts
-    puts type.comment_block_to_html if type.comment_block
+    puts format_comment_block type.comment_block if type.comment_block
     puts "type #{type.name}"
     type.members.each do |member|
       puts "    #{member}"
@@ -223,7 +138,7 @@ def main
 
   $interfaces.each do |intf|
     puts
-    puts intf.comment_block_to_html if intf.comment_block
+    puts format_comment_block intf.comment_block if intf.comment_block
     puts "interface #{intf.name}"
     intf.members.each do |member|
       puts "    #{member}"
@@ -232,7 +147,7 @@ def main
 
   $routines.each do |r|
     puts
-    puts r.comment_block_to_html if r.comment_block
+    puts format_comment_block r.comment_block if r.comment_block
     puts "#{r.kind} #{r.name}(#{r.params.join(', ')})"
     r.members.each do |member|
       puts "    #{member.first} :: #{member.last}"
@@ -371,6 +286,81 @@ def parse_end(context, line, what, name)
   else
     raise "Unrecognized end statement #{line}"
   end
+end
+
+def format_comment_block(comment_block)
+  # scan for smallest indentation
+  min_indent = find_min_indent(comment_block, /^!(\s*)/) + 1
+
+  # group by param:s and paragraphs
+  groups = []
+  last_was = nil
+  param_indent = nil
+  comment_block.each do |line|
+    line =~ /^!(\s*)(?:(?:(\w[\w\d]*): (.+))|(.*))?/
+    indent,param,defn,text = $1.length,$2,$3,$4
+    if param
+      param_indent = indent
+      groups << [param, defn]
+      last_was = :param
+    elsif last_was == :param and indent > param_indent # continue param:
+      groups.last << line[param_indent..-1]
+    elsif text.length > 0
+      if last_was == :paragraph
+        groups.last << ' ' # space separator between joined lines
+      else
+        groups << '' # new paragraph
+      end
+      groups.last << line[min_indent..-1].rstrip
+      last_was = :paragraph
+    else # end of paragraph
+      last_was = nil
+    end
+  end
+
+  # unindent and join param: lines
+  groups = groups.map do |group|
+    if String === group
+      group
+    elsif group.length == 2
+      [group[0], group[1].strip]
+    else
+      param_name = group.shift
+      buf = group.shift.strip
+      cont_indent = find_min_indent(group, /^(\s+)/)
+      last_was_block = nil
+      group.each do |l|
+        l =~ /^(\s+)/
+        indent = $1.length
+        if indent > cont_indent # block-indent
+          buf << "\n\n" unless last_was_block
+          buf << l[cont_indent..-1].rstrip + "\n"
+          last_was_block = true
+        else
+          buf << (last_was_block ? "\n" : ' ')
+          buf << l.strip
+          last_was_block = nil
+        end
+      end
+      [param_name, buf]
+    end
+  end
+
+  # mark up the definitions
+
+  # feed resulting string through markdown -> html
+
+  groups.inspect
+end
+
+def find_min_indent(lines, pat)
+  min_indent = 1000
+  lines.each do |line|
+    line =~ pat
+    indent = $1.length
+    min_indent = indent if indent < min_indent
+  end
+  min_indent
 end
 
 # run script
