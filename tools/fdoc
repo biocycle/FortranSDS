@@ -1,0 +1,214 @@
+#!/usr/bin/env ruby
+
+USAGE = "fdoc [-o OUTDIR] FILE.F90..."
+
+class FortranElement
+  attr_accessor :file, :line
+  attr_accessor :context
+  attr_accessor :comment_block
+  attr_accessor :name
+
+  def initialize(f, l, ctx, cb, n)
+    @file = f
+    @line = l
+    @context = ctx.last #reverse.find {|c| String !== c}
+    @comment_block = cb
+    @name = n
+  end
+
+  def nodoc?
+    @comment_block =~ /^!\s*:nodoc:/i
+  end
+end
+
+class Mod < FortranElement
+end
+
+class Prog < FortranElement
+end
+
+class WithMemb < FortranElement
+  attr_accessor :members
+
+  def initialize(f, l, ctx, cb, n)
+    super(f, l, ctx, cb, n)
+    @members = []
+  end
+end
+
+class Type < WithMemb
+end
+
+class Iface < WithMemb
+end
+
+class Routine < FortranElement
+  attr_accessor :members
+
+  def initialize(f, l, ctx, cb, n)
+    super(f, l, ctx, cb, n)
+    @members = []
+  end
+end
+
+class Sub < Routine
+  def kind
+    "subroutine"
+  end
+end
+
+class Fun < Routine
+  def kind
+    "function"
+  end
+end
+
+
+$outdir = 'doc'
+$modules = []
+$programs = []
+$types = []
+$interfaces = []
+$routines = []
+
+
+def main
+  if ARGV.length < 1
+    puts USAGE
+    exit -1
+  end
+
+  ARGV.each do |infile|
+    File.open(infile) {|fin| parse(fin) }
+  end
+
+  $routines.delete_if {|r| r.nodoc? }
+
+  $modules.each do |mod|
+    puts mod.comment_block
+    puts "module #{mod.name}"
+  end
+
+  $types.each do |type|
+    puts
+    puts "type #{type.name}"
+    type.members.each do |member|
+      puts "    #{member}"
+    end
+    puts "end type #{type.name}"
+  end
+
+  $routines.each do |r|
+    puts
+    puts r.comment_block if r.comment_block
+    puts "#{r.kind} #{r.name}"
+  end
+end
+
+class String
+  # like strip, but also removes fortran comments
+  def comment_strip
+    s = strip
+    if (i = s.index('!'))
+      s[0...i]
+    else
+      s
+    end
+  end
+end
+
+# extract documentation from a source file
+def parse(fin)
+  outfile = "#{$outdir}/#{fin.path}.html"
+
+  # parse code features (routines, variables, types modules, etc.)
+  # look for comment blocks and try to link them with routines
+
+  context = []
+  comment_block = ''
+
+  fin.each_line do |line|
+#puts "line #{line.inspect}"
+
+    case line
+    when /^\s*end\s*(?:(\w+)(?:\s+(\w[\w\d]*))?)?/i
+      what,name = $1.downcase,$2
+      parse_end(context, line, what, name)
+      context.pop
+    when /^\s*program\s+(\w[\w\d]+)/i
+      context.push Prog.new(fin.path, fin.lineno, context, comment_block, $1)
+      $programs << context.last
+    when /^\s*module\s+(\w[\w\d]+)/i
+      name = $1
+      if name =~ /^procedure$/i
+        # XXX if in interface, add to members
+      else
+        context.push Mod.new(fin.path, fin.lineno, context, comment_block, name)
+        $modules << context.last
+      end
+    when /^\s*interface\s+(\w[\w\d]+)/i
+      context.push Iface.new(fin.path, fin.lineno, context, comment_block, $1)
+      $interfaces << context.last
+    when /^\s*function\s+(\w[\w\d]+)/i
+      context.push Fun.new(fin.path, fin.lineno, context, comment_block, $1)
+      $routines << context.last
+    when /^\s*subroutine\s+(\w[\w\d]+)/i
+      context.push Sub.new(fin.path, fin.lineno, context, comment_block, $1)
+      $routines << context.last
+    when /^\s*type\s+(\w[\w\d]*)/i
+      context.push Type.new(fin.path, fin.lineno, context, comment_block, $1)
+      $types << context.last
+    when /^\s*if\s+/i
+      context.push 'if'
+    when /^\s*do\s+/i
+      context.push 'do'
+    when /^\s*select\s+/i
+      context.push 'select'
+    when /^\s*block\s+/i
+      context.push 'block'
+    when /^\s*where\s+/i
+      context.push 'where'
+    when /^\s*(?:integer|real|double|complex|character|logical|(?:type\()).*::.+/i
+      t = context.last
+      if Type === t # member declaration
+        t.members << line.comment_strip
+      end
+    end
+
+    if line =~ /^\s*!/
+      comment_block ||= ''
+      comment_block << line.strip << "\n"
+    elsif comment_block
+      comment_block = nil
+    end
+  end
+end
+
+def parse_end(context, line, what, name)
+  return unless what # just assume it's cool
+
+  case what
+  when 'program'
+  when 'module'
+  when 'interface'
+  when 'function'
+  when 'subroutine'
+    # XXX check the types on these
+  when 'type'
+    unless Type === context.last
+      raise "Unmatched end at '#{line}'"
+    end
+    if name and context.last.name != name
+      raise "Unmatched end at #{line}"
+    end
+  when 'if', 'do', 'select', 'block', 'where'
+    if what and what != context.last
+      raise "Parse Error at #{line}"
+    end
+  else
+    raise "Unrecognized end statement #{line}"
+  end
+end
+
+# run script
+main
