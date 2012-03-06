@@ -42,13 +42,8 @@ end
 class Iface < WithMemb
 end
 
-class Routine < FortranElement
-  attr_accessor :members
-
-  def initialize(f, l, ctx, cb, n)
-    super(f, l, ctx, cb, n)
-    @members = []
-  end
+class Routine < WithMemb
+  attr_accessor :params
 end
 
 class Sub < Routine
@@ -101,7 +96,7 @@ def main
   $routines.each do |r|
     puts
     puts r.comment_block if r.comment_block
-    puts "#{r.kind} #{r.name}"
+    puts "#{r.kind} #{r.name}(#{r.params.join(', ')})"
   end
 end
 
@@ -126,6 +121,7 @@ def parse(fin)
 
   context = []
   comment_block = ''
+  continued = false
 
   fin.each_line do |line|
 #puts "line #{line.inspect}"
@@ -149,12 +145,16 @@ def parse(fin)
     when /^\s*interface\s+(\w[\w\d]+)/i
       context.push Iface.new(fin.path, fin.lineno, context, comment_block, $1)
       $interfaces << context.last
-    when /^\s*function\s+(\w[\w\d]+)/i
-      context.push Fun.new(fin.path, fin.lineno, context, comment_block, $1)
+    when /^\s*function\s+(\w[\w\d]+)\s*\(([^)&]*)/i
+      name,params = $1,$2
+      context.push Fun.new(fin.path, fin.lineno, context, comment_block, name)
       $routines << context.last
-    when /^\s*subroutine\s+(\w[\w\d]+)/i
-      context.push Sub.new(fin.path, fin.lineno, context, comment_block, $1)
+      context.last.params = params.scan(/\w[\w\d]+/)
+    when /^\s*subroutine\s+(\w[\w\d]+)\s*\(([^)&]*)/i
+      name,params = $1,$2
+      context.push Sub.new(fin.path, fin.lineno, context, comment_block, name)
       $routines << context.last
+      context.last.params = params.scan(/\w[\w\d]+/)
     when /^\s*type\s+(\w[\w\d]*)/i
       context.push Type.new(fin.path, fin.lineno, context, comment_block, $1)
       $types << context.last
@@ -173,6 +173,10 @@ def parse(fin)
       if Type === t # member declaration
         t.members << line.comment_strip
       end
+    when /^\s*(?:(?:\w[\w\d]+)\s*,\s*)*(?:\w[\w\d]+)\s*[)&]\s*$/i
+      if continued and context.last.respond_to?(:params)
+        context.last.params += line.scan(/\w[\w\d]+/)
+      end
     end
 
     if line =~ /^\s*!/
@@ -181,6 +185,8 @@ def parse(fin)
     elsif comment_block
       comment_block = nil
     end
+
+    continued = (line =~ /&\s*$/)
   end
 end
 
