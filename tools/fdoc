@@ -90,11 +90,24 @@ class Fun < Routine
   end
 end
 
+class String
+  # like strip, but also removes fortran comments
+  def comment_strip
+    s = strip
+    if (i = s.index('!'))
+      s[0...i]
+    else
+      s
+    end
+  end
+end
+
 
 $outdir = 'doc'
 $modules = []
 $programs = []
 $types = []
+$consts = []
 $interfaces = []
 $routines = []
 
@@ -116,53 +129,75 @@ def main
   $routines.delete_if {|r| r.nodoc? }
   $routines.each {|r| r.filter_locals! }
 
-  $modules.each do |mod|
-    puts format_comment_block mod.comment_block if mod.comment_block
-    puts "module #{mod.name}"
-  end
-
-  $programs.each do |prog|
-    puts format_comment_block prog.comment_block if prog.comment_block
-    puts "program #{prog.name}"
-  end
-
-  $types.each do |type|
-    puts
-    puts format_comment_block type.comment_block if type.comment_block
-    puts "type #{type.name}"
-    type.members.each do |member|
-      puts "    #{member}"
-    end
-    puts "end type #{type.name}"
-  end
-
-  $interfaces.each do |intf|
-    puts
-    puts format_comment_block intf.comment_block if intf.comment_block
-    puts "interface #{intf.name}"
-    intf.members.each do |member|
-      puts "    #{member}"
-    end
-  end
-
-  $routines.each do |r|
-    puts
-    puts format_comment_block r.comment_block if r.comment_block
-    puts "#{r.kind} #{r.name}(#{r.params.join(', ')})"
-    r.members.each do |member|
-      puts "    #{member.first} :: #{member.last}"
-    end
-  end
+  output_markdown
 end
 
-class String
-  # like strip, but also removes fortran comments
-  def comment_strip
-    s = strip
-    if (i = s.index('!'))
-      s[0...i]
+def output_markdown
+  def header(text, level = 2)
+    buf = text + "\n"
+    case level
+    when 1
+      buf << "=" * text.length
+    when 2
+      buf << "-" * text.length
     else
-      s
+      raise "Unsupported header level #{level}"
+    end
+    buf << "\n\n"
+  end
+
+  def comment_block(fe)
+    if fe.comment_block
+      puts parse_comment_block fe.comment_block
+      puts "\n\n"
+    end
+  end
+
+  $modules.each do |mod|
+    puts header("Module #{mod.name}", 1)
+    puts parse_comment_block mod.comment_block if mod.comment_block
+    puts
+
+    $types.each do |type|
+      if type.context == mod
+        puts header("Type #{type.name}")
+
+        puts "    type #{type.name}"
+        type.members.each do |vars|
+          puts "        #{vars}"
+        end
+        puts "    end type\n\n"
+
+        comment_block(type)
+      end
+    end
+
+    $interfaces.each do |intf|
+      if intf.context == mod
+        puts header("Interface #{intf.name}")
+
+        puts "    interface #{intf.name}"
+        intf.members.each do |funs|
+          puts "        #{funs}"
+        end
+        puts "    end interface\n\n"
+
+        comment_block(intf)
+       end
+    end
+
+    $routines.each do |rtn|
+      if rtn.context == mod
+        puts header("#{rtn.kind.capitalize} #{rtn.name}")
+
+        puts "    #{rtn.kind} #{rtn.name}(#{rtn.params.join(', ')})"
+        rtn.members.each do |member|
+          puts "        #{member.first} :: #{member.last}"
+        end
+        puts "    end #{rtn.kind}\n\n"
+
+        comment_block(rtn)
+      end
     end
   end
 end
@@ -288,7 +323,7 @@ def parse_end(context, line, what, name)
   end
 end
 
-def format_comment_block(comment_block)
+def parse_comment_block(comment_block)
   # scan for smallest indentation
   min_indent = find_min_indent(comment_block, /^!(\s*)/) + 1
 
@@ -346,11 +381,25 @@ def format_comment_block(comment_block)
     end
   end
 
-  # mark up the definitions
+  # mark up the params as definitions
+  buf = ''
+  seen_param = false
+  groups.each do |group|
+    if String === group
+      buf << "</dl>\n\n" if seen_param
+      seen_param = false
+      buf << "#{group}\n\n"
+    else
+      buf << "\n<dl>" unless seen_param
+      seen_param = true
 
-  # feed resulting string through markdown -> html
+      buf << "\n  <dt>#{group.shift}</dt>\n  <dd>"
+      buf << group.join("\n") << "</dd>\n"
+    end
+  end
+  buf << "</dl>\n" if seen_param
 
-  groups.inspect
+  buf
 end
 
 def find_min_indent(lines, pat)
