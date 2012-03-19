@@ -56,3 +56,31 @@ char *xstrdup(const char *s)
     strcpy(t, s);
     return t;
 }
+
+static List *list_r(List *l, List **newhead)
+{
+    if (l->next) {
+        List *m = list_r(l->next, newhead);
+        m->next = l;
+    } else {
+        *newhead = l;
+    }
+    return l;
+}
+
+List *list_reverse(List *l)
+{
+    List *newhead;
+    l = list_r(l, &newhead);
+    l->next = NULL;
+    return newhead;
+}
+
+List *list_find(List *l, char *key)
+{
+    for (; l != NULL; l = l->next) {
+        if (!strcmp(key, l->key))
+            return l;
+    }
+    return NULL;
+}

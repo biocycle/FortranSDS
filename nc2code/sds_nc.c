@@ -34,8 +34,8 @@ static SDSType nc_to_sds_type(nc_type type)
     abort();
 }
 
-static void read_attributes(const char *path, int ncid, int id, int natts,
-                            SkipList *sl)
+static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
+                                   int natts)
 {
     char buf[NC_MAX_NAME + 1];
     int status, i;
@@ -43,6 +43,7 @@ static void read_attributes(const char *path, int ncid, int id, int natts,
     size_t count, bytes;
     SDSAttInfo *att;
     void *data;
+    SDSAttInfo *att_list = NULL;
 
     for (i = 0; i < natts; i++) {
         status = nc_inq_attname(ncid, id, i, buf);
@@ -62,24 +63,27 @@ static void read_attributes(const char *path, int ncid, int id, int natts,
         att->count = count;
         att->bytes = bytes;
         att->data.v = data;
-        skiplist_add(sl, att->name, att);
-    }
-}
 
-static int search_dimid(char *key, SDSDimInfo *dim, int *id)
-{
-    return (dim->id == *id) ? 1 : 0;
+        att->next = att_list;
+        att_list = att;
+    }
+    return (SDSAttInfo *)list_reverse((List *)att_list);
 }
 
 /* Map array of the variable's dimension ids to an array of SDSDimInfo pointers.
  */
-static void map_dimids(SDSVarInfo *vi, int *dimids, SkipList *dims)
+static void map_dimids(SDSVarInfo *vi, int *dimids, SDSDimInfo *dims)
 {
+    SDSDimInfo *di;
     int i;
 
     for (i = 0; i < vi->ndims; i++) {
-        vi->dims[i] = skiplist_search(dims,
-            (int (*)(char *, void *, void *))search_dimid, &dimids[i]);
+        for (di = dims; di != NULL; di = di->next) {
+            if (di->id == dimids[i]) {
+                vi->dims[i] = di;
+                break;
+            }
+        }
         assert(vi->dims[i] != NULL);
     }
 }
@@ -108,13 +112,11 @@ SDSInfo *open_nc_sds(const char *path)
     CHECK_NC_ERROR(path, status);
 
     /* read global attributes */
-    sds->gatts = skiplist_new();
-    read_attributes(path, ncid, NC_GLOBAL, ngatts, sds->gatts);
+    sds->gatts = read_attributes(path, ncid, NC_GLOBAL, ngatts);
 
     /* read dimension info */
     status = nc_inq_dimids(ncid, &ndims, ids, 1);
     CHECK_NC_ERROR(path, status);
-    sds->dims = skiplist_new();
     for (i = 0; i < ndims; i++) {
         SDSDimInfo *dim;
         size_t size;
@@ -125,16 +127,18 @@ SDSInfo *open_nc_sds(const char *path)
         dim->name = xstrdup(buf);
         dim->size = size;
         dim->id = ids[i];
-        skiplist_add(sds->dims, dim->name, dim);
+
+        dim->next = sds->dims;
+        sds->dims = dim;
 
         if (ids[i] == unlimdimid)
             sds->unlimdim = dim;
     }
+    sds->dims = (SDSDimInfo *)list_reverse((List *)sds->dims);
 
     /* read variable info */
     status = nc_inq_varids(ncid, &nvars, ids);
     CHECK_NC_ERROR(path, status);
-    sds->vars = skiplist_new();
     for (i = 0; i < nvars; i++) {
         SDSVarInfo *vi;
         nc_type type;
@@ -150,35 +154,47 @@ SDSInfo *open_nc_sds(const char *path)
         vi->dims = NEWA(SDSDimInfo *, ndims);
         map_dimids(vi, dimids, sds->dims);
 
-        vi->atts = skiplist_new();
-        read_attributes(path, ncid, ids[i], natts, vi->atts);
+        vi->atts = read_attributes(path, ncid, ids[i], natts);
 
-        skiplist_add(sds->vars, vi->name, vi);
+        vi->next = sds->vars;
+        sds->vars = vi;
     }
+    sds->vars = (SDSVarInfo *)list_reverse((List *)sds->vars);
 
     return sds;
 }
 
 static void free_atts(SDSAttInfo *att)
 {
-    free(att->name);
-    free(att->data.v);
-    free(att);
+    if (att) {
+        SDSAttInfo *next = att->next;
+        free(att->name);
+        free(att->data.v);
+        free(att);
+        free_atts(next);
+    }
 }
 
 static void free_dims(SDSDimInfo *dim)
 {
-    free(dim->name);
-    free(dim);
+    if (dim) {
+        SDSDimInfo *next = dim->next;
+        free(dim->name);
+        free(dim);
+        free_dims(next);
+    }
 }
 
 static void free_vars(SDSVarInfo *var)
 {
-    free(var->name);
-    if (var->atts)
-        skiplist_free(var->atts, (void (*)(void *))free_atts);
-    free(var->dims);
-    free(var);
+    if (var) {
+        SDSVarInfo *next = var->next;
+        free(var->name);
+        free_atts(var->atts);
+        free(var->dims);
+        free(var);
+        free_vars(next);
+    }
 }
 
 /* Close the NetCDF file and free all memory used for metadata.
@@ -188,12 +204,9 @@ int close_nc_sds(SDSInfo *sds)
 {
     int status;
 
-    if (sds->gatts)
-        skiplist_free(sds->gatts, (void (*)(void *))free_atts);
-    if (sds->dims)
-        skiplist_free(sds->dims, (void (*)(void *))free_dims);
-    if (sds->vars)
-        skiplist_free(sds->vars, (void (*)(void *))free_vars);
+    free_atts(sds->gatts);
+    free_dims(sds->dims);
+    free_vars(sds->vars);
 
     status = nc_close(sds->ncid);
     CHECK_NC_ERROR(sds->path, status);

@@ -1,7 +1,6 @@
 #ifndef SDS_H
 #define SDS_H
 
-#include "skiplist.h"
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -15,7 +14,8 @@ typedef enum {
     SDS_STRING
 } SDSType;
 
-typedef struct {
+typedef struct SDSAttInfo {
+    struct SDSAttInfo *next;
     char *name;
     SDSType type;
     size_t count; /* number of elements */
@@ -31,24 +31,28 @@ typedef struct {
     } data;
 } SDSAttInfo;
 
-typedef struct {
+typedef struct SDSDimInfo {
+    struct SDSDimInfo *next;
     char *name;
     size_t size;
     int id; /* private */
 } SDSDimInfo;
 
-typedef struct {
+typedef struct SDSVarInfo {
+    struct SDSVarInfo *next;
     char *name;
     SDSType type;
     int ndims;
     SDSDimInfo **dims;
-    SkipList *atts;
+    SDSAttInfo *atts;
     int id; /* private */
 } SDSVarInfo;
 
 typedef struct {
     char *path;
-    SkipList *gatts, *dims, *vars;
+    SDSAttInfo *gatts;
+    SDSDimInfo *dims;
+    SDSVarInfo *vars;
     SDSDimInfo *unlimdim;
     int ncid; /* private */
 } SDSInfo;

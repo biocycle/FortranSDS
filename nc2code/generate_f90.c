@@ -1,13 +1,7 @@
 #include "sds.h"
 #include <stdio.h>
 
-struct Context {
-    FILE *fout;
-    const char *name;
-    int i, num, w, size;
-};
-
-#define MAX_WIDTH (72)
+#define MAX_WIDTH (80)
 
 static const char CHECK_FUNCTION[] =
 "subroutine checknc(status)\n"
@@ -20,130 +14,11 @@ static const char CHECK_FUNCTION[] =
 "end subroutine checknc\n"
 ;
 
-static void dim_varname(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-    if (ctx->i < ctx->num) {
-        fprintf(ctx->fout, "%s_dimid, ", name);
-        ctx->i++;
-    } else {
-        fprintf(ctx->fout, "%s_dimid", name);
-    }
-}
-
-static void var_varname(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-    if (ctx->i < ctx->num) {
-        fprintf(ctx->fout, "%s_id, ", name);
-        ctx->i++;
-    } else {
-        fprintf(ctx->fout, "%s_id", name);
-    }
-}
-
-static void global_att_max_size(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-    SDSAttInfo *att = value;
-
-    if (att->bytes > ctx->size)
-        ctx->size = att->bytes;
-}
-
-static void global_att_var(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-    if (ctx->w >= MAX_WIDTH) {
-        ctx->w = 0;
-        fprintf(ctx->fout, "character(%i) :: ", ctx->size);
-    }
-
-    if (ctx->i < ctx->num) {
-        fprintf(ctx->fout, "%s, ", name);
-        ctx->i++;
-    } else {
-        fprintf(ctx->fout, "%s", name);
-    }
-
-    ctx->w++;
-    if (ctx->w >= MAX_WIDTH)
-        fputs("\n", ctx->fout);
-}
-
-static void varatt_varname(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-
-    if (ctx->i < ctx->num) {
-        fprintf(ctx->fout, "%s_%s, ", ctx->name, name);
-        ctx->i++;
-    } else {
-        fprintf(ctx->fout, "%s_%s", ctx->name, name);
-    }
-}
-
-static void var_att_vars(char *name, void *value, void *data)
-{
-    SDSVarInfo *var = value;
-    FILE *fout = data;
-    struct Context ctx;
-    ctx.fout = fout;
-    ctx.name = name;
-    ctx.i = 1;
-    ctx.num = var->atts->n_nodes;
-    fputs("character() :: ", fout);
-    skiplist_each(var->atts, varatt_varname, &ctx);
-    fputs("\n", fout);
-}
-
-static void read_global_att(char *name, void *value, void *data)
-{
-    FILE *fout = data;
-    fprintf(fout, "call checknc( nf90_get_att(ncid, NF90_GLOBAL, \"%s\", %s) )\n",
-            name, name);
-}
-
-static void read_var_att(char *name, void *value, void *data)
-{
-    struct Context *ctx = data;
-    fprintf(ctx->fout, "call checknc( nf90_get_att(ncid, %s_id, \"%s\", %s_%s) )\n",
-            ctx->name, name, ctx->name, name);
-}
-
-static void read_var_atts(char *name, void *value, void *data)
-{
-    SDSVarInfo *var = value;
-    FILE *fout = data;
-    struct Context ctx;
-    ctx.fout = fout;
-    ctx.name = name;
-    skiplist_each(var->atts, read_var_att, &ctx);
-    fputs("\n", fout);
-}
-
-static void read_dimension(char *name, void *value, void *data)
-{
-    FILE *fout = data;
-    fprintf(fout, "call checknc( nf90_inq_dimid(ncid, \"%s\", %s_dimid) )\n", name, name);
-}
-
-static void read_varid(char *name, void *value, void *data)
-{
-    FILE *fout = data;
-    fprintf(fout, "call checknc( nf90_inq_varid(ncid, \"%s\", %s_id) )\n", name, name);
-}
-
-static void read_var(char *name, void *value, void *data)
-{
-    FILE *fout = data;
-    fprintf(fout, "call checknc( nf90_get_var(ncid, %s_id, %s) )\n", name, name);
-}
-
 void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 {
-    struct Context ctx;
-    ctx.fout = fout;
+    SDSAttInfo *ai;
+    SDSDimInfo *di;
+    SDSVarInfo *vi;
 
     fputs("use netcdf\n\n", fout);
 
@@ -151,17 +26,19 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 
     /* dimension id vars */
     fputs("integer :: ", fout);
-    ctx.num = sds->dims->n_nodes;
-    ctx.i = 1;
-    skiplist_each(sds->dims, dim_varname, &ctx);
+    for (di = sds->dims; di != NULL; di = di->next) {
+        fprintf(fout, "%s_dimid", di->name);
+        if (di->next) fputs(", ", fout);
+    }
     fputs("\n", fout);
 
     /* variable id vars */
-    if (sds->vars->n_nodes > 0) {
+    if (sds->vars) {
         fputs("integer :: ", fout);
-        ctx.num = sds->vars->n_nodes;
-        ctx.i = 1;
-        skiplist_each(sds->vars, var_varname, &ctx);
+        for (vi = sds->vars; vi != NULL; vi = vi->next) {
+            fprintf(fout, "%s_id", vi->name);
+            if (vi->next) fputs(", ", fout);
+        }
         fputs("\n", fout);
     }
 
@@ -172,15 +49,24 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     fputs("\n", fout);
 
     fputs("! read dimensions\n", fout);
-    skiplist_each(sds->dims, read_dimension, fout);
+    for (di = sds->dims; di != NULL; di = di->next) {
+        fprintf(fout, "call checknc( nf90_inq_dimid(ncid, \"%s\", %s_dimid) )\n",
+                di->name, di->name);
+    }
     fputs("\n", fout);
 
     fputs("! get variable IDs\n", fout);
-    skiplist_each(sds->vars, read_varid, fout);
+    for (vi = sds->vars; vi != NULL; vi = vi->next) {
+        fprintf(fout, "call checknc( nf90_inq_varid(ncid, \"%s\", %s_id) )\n",
+                vi->name, vi->name);
+    }
     fputs("\n", fout);
 
     fputs("! read var data\n", fout);
-    skiplist_each(sds->vars, read_var, fout);
+    for (vi = sds->vars; vi != NULL; vi = vi->next) {
+        fprintf(fout, "call checknc( nf90_get_var(ncid, %s_id, %s) )\n",
+                vi->name, vi->name);
+    }
     fputs("\n", fout);
 
     /* read last dim of var data in a loop */
@@ -192,26 +78,64 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     fputs(CHECK_FUNCTION, fout);
 
     if (generate_att) {
+        int w = MAX_WIDTH;
+        int size = 0;
+
         fputs("\n\n! attribute variables\n", fout);
-        ctx.i = 1;
-        ctx.num = sds->gatts->n_nodes;
-        ctx.w = MAX_WIDTH;
-        ctx.size = 0;
-        skiplist_each(sds->gatts, global_att_max_size, &ctx);
-        skiplist_each(sds->gatts, global_att_var, &ctx);
+        for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+            int asize = ai->bytes * ai->count;
+            if (asize > size) size = asize;
+        }
+        for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+            if (w >= MAX_WIDTH) {
+                w = 0;
+                fprintf(fout, "character(%i) :: ", size);
+            }
+
+            fprintf(fout, "%s", ai->name);
+            if (ai->next) fputs(", ", fout);
+
+            w++;
+            if (w >= MAX_WIDTH)
+                fputs("\n", fout);
+        }
         fputs("\n", fout);
 
-        skiplist_each(sds->vars, var_att_vars, fout);
+        for (vi = sds->vars; vi != NULL; vi = vi->next) {
+            size = 0;
+            for (ai = vi->atts; ai != NULL; ai = ai->next) {
+                int asize = ai->bytes * ai->count;
+                if (asize > size) size = asize;
+            }
+            if (vi->atts)
+                fprintf(fout, "character(%i) :: ", size);
+            for (ai = vi->atts; ai != NULL; ai = ai->next) {
+                fprintf(fout, "%s_%s", vi->name, ai->name);
+                if (ai->next) fputs(", ", fout);
+            }
+            if (vi->atts)
+                fputs("\n", fout);
+        }
         fputs("\n\n", fout);
 
-        if (sds->gatts->n_nodes > 0) {
+        if (sds->gatts) {
             fputs("! read global attributes\n", fout);
-            skiplist_each(sds->gatts, read_global_att, fout);
+            for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+                fprintf(fout, "call checknc( nf90_get_att(ncid, NF90_GLOBAL, \"%s\", %s) )\n",
+                        ai->name, ai->name);
+            }
             fputs("\n", fout);
         }
 
         fputs("! read var attributes\n", fout);
-        skiplist_each(sds->vars, read_var_atts, fout);
+        for (vi = sds->vars; vi != NULL; vi = vi->next) {
+            for (ai = vi->atts; ai != NULL; ai = ai->next) {
+                fprintf(fout, "call checknc( nf90_get_att(ncid, %s_id, \"%s\", %s_%s) \
+)\n",
+                        vi->name, ai->name, vi->name, ai->name);
+            }
+            fputs("\n", fout);
+        }
         fputs("\n", fout);
     }
 }

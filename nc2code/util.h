@@ -23,4 +23,12 @@ void *grow_ary(void *ary, size_t element_size, size_t *capacity);
 
 char *xstrdup(const char *);
 
+typedef struct List {
+    struct List *next;
+    char *key;
+} List;
+
+List *list_reverse(List *l);
+List *list_find(List *l, char *key);
+
 #endif /* UTIL_H */

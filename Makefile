@@ -29,7 +29,7 @@ FFLAGS += -I. -I$(NC_ROOT)/include
 LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz
 C_LDFLAGS = $(LDFLAGS) -lm
 
-NC2CODE_OBJS = nc2code.o generate_f90.o sds_nc.o skiplist.o util.o
+NC2CODE_OBJS = nc2code/nc2code.o nc2code/generate_f90.o nc2code/sds_nc.o nc2code/util.o
 
 .SUFFIXES:
 .SUFFIXES: .c .f90 .F90 .o
@@ -47,12 +47,12 @@ NC2CODE_OBJS = nc2code.o generate_f90.o sds_nc.o skiplist.o util.o
 .f90.o:
 	$(F90) $(FFLAGS) -c $< -o $@
 
-all: test
+all: test nc2code/nc2code
 
 simple_netcdf.F90: simple_netcdf.F90.erb
 	tools/ferb $< >$@
 
-nc2code: $(NC2CODE_OBJS)
+nc2code/nc2code: $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
 
 test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line \
@@ -79,3 +79,4 @@ test/timestep_nc: simple_netcdf.o test/timestep_nc.o
 clean:
 	rm -f *~ *.o *.mod simple.nc cf.nc
 	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc test/timestep_nc
+	rm -f nc2code/*.o nc2code/*~
