@@ -57,23 +57,17 @@ char *xstrdup(const char *s)
     return t;
 }
 
-static List *list_r(List *l, List **newhead)
+static List *list_r(List *prev, List *l)
 {
-    if (l->next) {
-        List *m = list_r(l->next, newhead);
-        m->next = l;
-    } else {
-        *newhead = l;
-    }
-    return l;
+    List *next = l->next;
+    l->next = prev;
+    return next ? list_r(l, next) : l;
 }
 
 List *list_reverse(List *l)
 {
-    List *newhead;
-    l = list_r(l, &newhead);
-    l->next = NULL;
-    return newhead;
+    if (!l) return NULL;
+    return list_r(NULL, l);
 }
 
 List *list_find(List *l, char *key)
