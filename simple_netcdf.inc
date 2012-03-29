@@ -4,6 +4,9 @@
 #define snc_cf_write_coords(...) snc_cf_write_coords(__VA_ARGS__, \
         src_file = __FILE__, src_line = __LINE__)
 
+#define snc_open_var(...) snc_open_var(__VA_ARGS__, \
+        src_file = __FILE__, src_line = __LINE__)
+
 #define snc_open(path) snc_open(path, src_file = __FILE__, src_line = __LINE__)
 #define snc_create(path) snc_create(path, src_file = __FILE__, src_line = __LINE__)
 

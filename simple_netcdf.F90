@@ -33,6 +33,14 @@ module SimpleNetCDF
         module procedure snc_cf_write_coords3f, snc_cf_write_coords3d
     end interface snc_cf_write_coords
 
+    ! Open a NetCDF file and read the given variable.
+    interface snc_open_var
+        module procedure snc_open_var1i, snc_open_var1f, snc_open_var1d
+        module procedure snc_open_var2i, snc_open_var2f, snc_open_var2d
+        module procedure snc_open_var3i, snc_open_var3f, snc_open_var3d
+        module procedure snc_open_var4i, snc_open_var4f, snc_open_var4d
+    end interface snc_open_var
+
     ! read 1-4 dimensional arrays of type integer, float (real*4)
     ! or double (real*8).
     interface snc_read
@@ -301,7 +309,7 @@ contains
     end function snc_cf_def_var
 
     ! Write the coordinate variables to a CF-compliant NetCDF file.
-#line 307 "simple_netcdf.F90.erb"
+#line 315 "simple_netcdf.F90.erb"
     subroutine snc_cf_write_coords2f(file, lon, lat, time, src_file, src_line)
         type(SNCFile), intent(in) :: file
         real*4, intent(in), dimension(:) :: lon, lat, time
@@ -318,7 +326,7 @@ contains
         var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
         call snc_write(file, var, time, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords2f
-#line 323 "simple_netcdf.F90.erb"
+#line 331 "simple_netcdf.F90.erb"
 
 
     subroutine snc_cf_write_coords3f(file, lon, lat, z, time, src_file, src_line)
@@ -333,10 +341,10 @@ contains
         z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
         call snc_write(file, z_var, z, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords3f
-#line 337 "simple_netcdf.F90.erb"
+#line 345 "simple_netcdf.F90.erb"
 
 
-#line 307 "simple_netcdf.F90.erb"
+#line 315 "simple_netcdf.F90.erb"
     subroutine snc_cf_write_coords2d(file, lon, lat, time, src_file, src_line)
         type(SNCFile), intent(in) :: file
         real*8, intent(in), dimension(:) :: lon, lat, time
@@ -353,7 +361,7 @@ contains
         var = snc_inq_var(file, "time", src_file = src_file, src_line = src_line)
         call snc_write(file, var, time, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords2d
-#line 323 "simple_netcdf.F90.erb"
+#line 331 "simple_netcdf.F90.erb"
 
 
     subroutine snc_cf_write_coords3d(file, lon, lat, z, time, src_file, src_line)
@@ -368,10 +376,276 @@ contains
         z_var = snc_inq_var(file, file%z_name, src_file = src_file, src_line = src_line)
         call snc_write(file, z_var, z, src_file = src_file, src_line = src_line)
     end subroutine snc_cf_write_coords3d
-#line 337 "simple_netcdf.F90.erb"
+#line 345 "simple_netcdf.F90.erb"
 
 
-#line 340 "simple_netcdf.F90.erb"
+#line 348 "simple_netcdf.F90.erb"
+
+
+    ! OPEN FILE AND READ VARIABLE ---
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var1i(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        integer, pointer :: data(:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var1i
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var1f(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*4, pointer :: data(:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var1f
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var1d(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*8, pointer :: data(:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var1d
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 374 "simple_netcdf.F90.erb"
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var2i(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        integer, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var2i
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var2f(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*4, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var2f
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var2d(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*8, pointer :: data(:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var2d
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 374 "simple_netcdf.F90.erb"
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var3i(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        integer, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var3i
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var3f(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*4, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var3f
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var3d(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*8, pointer :: data(:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var3d
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 374 "simple_netcdf.F90.erb"
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var4i(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        integer, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var4i
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var4f(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*4, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var4f
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 354 "simple_netcdf.F90.erb"
+    ! :nodoc:
+    subroutine snc_open_var4d(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        real*8, pointer :: data(:,:,:,:)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var4d
+#line 371 "simple_netcdf.F90.erb"
+
+
+#line 374 "simple_netcdf.F90.erb"
+
+#line 376 "simple_netcdf.F90.erb"
+
 
 
     ! OPEN SECTION ---
@@ -597,7 +871,7 @@ contains
 
     ! READ VAR SECTION ---
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read1i(file, var, data, timestep, &
         src_file, src_line)
@@ -627,10 +901,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read1i
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read1f(file, var, data, timestep, &
         src_file, src_line)
@@ -660,10 +934,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read1f
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read1d(file, var, data, timestep, &
         src_file, src_line)
@@ -693,12 +967,12 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read1d
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 599 "simple_netcdf.F90.erb"
+#line 636 "simple_netcdf.F90.erb"
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read2i(file, var, data, timestep, &
         src_file, src_line)
@@ -728,10 +1002,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read2i
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read2f(file, var, data, timestep, &
         src_file, src_line)
@@ -761,10 +1035,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read2f
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read2d(file, var, data, timestep, &
         src_file, src_line)
@@ -794,12 +1068,12 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read2d
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 599 "simple_netcdf.F90.erb"
+#line 636 "simple_netcdf.F90.erb"
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read3i(file, var, data, timestep, &
         src_file, src_line)
@@ -829,10 +1103,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read3i
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read3f(file, var, data, timestep, &
         src_file, src_line)
@@ -862,10 +1136,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read3f
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read3d(file, var, data, timestep, &
         src_file, src_line)
@@ -895,12 +1169,12 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read3d
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 599 "simple_netcdf.F90.erb"
+#line 636 "simple_netcdf.F90.erb"
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read4i(file, var, data, timestep, &
         src_file, src_line)
@@ -930,10 +1204,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read4i
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read4f(file, var, data, timestep, &
         src_file, src_line)
@@ -963,10 +1237,10 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read4f
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 567 "simple_netcdf.F90.erb"
+#line 604 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_read4d(file, var, data, timestep, &
         src_file, src_line)
@@ -996,16 +1270,16 @@ contains
                 err_msg, src_file, src_line)
         end if
     end subroutine snc_read4d
-#line 596 "simple_netcdf.F90.erb"
+#line 633 "simple_netcdf.F90.erb"
 
 
-#line 599 "simple_netcdf.F90.erb"
+#line 636 "simple_netcdf.F90.erb"
 
-#line 601 "simple_netcdf.F90.erb"
+#line 638 "simple_netcdf.F90.erb"
 
     ! WRITE VAR SECTION ---
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write1i(file, var, data, timestep, &
         src_file, src_line)
@@ -1033,10 +1307,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1i
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write1f(file, var, data, timestep, &
         src_file, src_line)
@@ -1064,10 +1338,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1f
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write1d(file, var, data, timestep, &
         src_file, src_line)
@@ -1095,12 +1369,12 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write1d
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 636 "simple_netcdf.F90.erb"
+#line 673 "simple_netcdf.F90.erb"
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write2i(file, var, data, timestep, &
         src_file, src_line)
@@ -1128,10 +1402,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2i
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write2f(file, var, data, timestep, &
         src_file, src_line)
@@ -1159,10 +1433,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2f
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write2d(file, var, data, timestep, &
         src_file, src_line)
@@ -1190,12 +1464,12 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write2d
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 636 "simple_netcdf.F90.erb"
+#line 673 "simple_netcdf.F90.erb"
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write3i(file, var, data, timestep, &
         src_file, src_line)
@@ -1223,10 +1497,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3i
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write3f(file, var, data, timestep, &
         src_file, src_line)
@@ -1254,10 +1528,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3f
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write3d(file, var, data, timestep, &
         src_file, src_line)
@@ -1285,12 +1559,12 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write3d
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 636 "simple_netcdf.F90.erb"
+#line 673 "simple_netcdf.F90.erb"
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write4i(file, var, data, timestep, &
         src_file, src_line)
@@ -1318,10 +1592,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4i
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write4f(file, var, data, timestep, &
         src_file, src_line)
@@ -1349,10 +1623,10 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4f
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 606 "simple_netcdf.F90.erb"
+#line 643 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_write4d(file, var, data, timestep, &
         src_file, src_line)
@@ -1380,17 +1654,17 @@ contains
             trim(var%name), trim(file%name)
         call snc_handle_error(status, err_msg, src_file, src_line)
     end subroutine snc_write4d
-#line 633 "simple_netcdf.F90.erb"
+#line 670 "simple_netcdf.F90.erb"
 
 
-#line 636 "simple_netcdf.F90.erb"
+#line 673 "simple_netcdf.F90.erb"
 
-#line 638 "simple_netcdf.F90.erb"
+#line 675 "simple_netcdf.F90.erb"
 
     ! ATTRIBUTE SECTION ---
 
     ! Read an attribute from the NetCDF file
-#line 643 "simple_netcdf.F90.erb"
+#line 680 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_get_att_str(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1406,7 +1680,7 @@ contains
         call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_get_att_str
-#line 658 "simple_netcdf.F90.erb"
+#line 695 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1422,10 +1696,10 @@ contains
         var%name = "(global)"
         call snc_get_att_str(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_get_gatt_str
-#line 673 "simple_netcdf.F90.erb"
+#line 710 "simple_netcdf.F90.erb"
 
 
-#line 643 "simple_netcdf.F90.erb"
+#line 680 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_get_atti(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1441,7 +1715,7 @@ contains
         call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_get_atti
-#line 658 "simple_netcdf.F90.erb"
+#line 695 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1457,10 +1731,10 @@ contains
         var%name = "(global)"
         call snc_get_atti(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_get_gatti
-#line 673 "simple_netcdf.F90.erb"
+#line 710 "simple_netcdf.F90.erb"
 
 
-#line 643 "simple_netcdf.F90.erb"
+#line 680 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_get_attf(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1476,7 +1750,7 @@ contains
         call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_get_attf
-#line 658 "simple_netcdf.F90.erb"
+#line 695 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1492,10 +1766,10 @@ contains
         var%name = "(global)"
         call snc_get_attf(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_get_gattf
-#line 673 "simple_netcdf.F90.erb"
+#line 710 "simple_netcdf.F90.erb"
 
 
-#line 643 "simple_netcdf.F90.erb"
+#line 680 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_get_attd(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1511,7 +1785,7 @@ contains
         call snc_handle_error(nf90_get_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_get_attd
-#line 658 "simple_netcdf.F90.erb"
+#line 695 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1527,14 +1801,14 @@ contains
         var%name = "(global)"
         call snc_get_attd(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_get_gattd
-#line 673 "simple_netcdf.F90.erb"
+#line 710 "simple_netcdf.F90.erb"
 
 
-#line 676 "simple_netcdf.F90.erb"
+#line 713 "simple_netcdf.F90.erb"
 
 
     ! Write an attribute to the NetCDF file.
-#line 680 "simple_netcdf.F90.erb"
+#line 717 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_put_att_str(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1550,7 +1824,7 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_put_att_str
-#line 695 "simple_netcdf.F90.erb"
+#line 732 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1566,10 +1840,10 @@ contains
         var%name = "(global)"
         call snc_put_att_str(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_put_gatt_str
-#line 710 "simple_netcdf.F90.erb"
+#line 747 "simple_netcdf.F90.erb"
 
 
-#line 680 "simple_netcdf.F90.erb"
+#line 717 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_put_atti(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1585,7 +1859,7 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_put_atti
-#line 695 "simple_netcdf.F90.erb"
+#line 732 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1601,10 +1875,10 @@ contains
         var%name = "(global)"
         call snc_put_atti(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_put_gatti
-#line 710 "simple_netcdf.F90.erb"
+#line 747 "simple_netcdf.F90.erb"
 
 
-#line 680 "simple_netcdf.F90.erb"
+#line 717 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_put_attf(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1620,7 +1894,7 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_put_attf
-#line 695 "simple_netcdf.F90.erb"
+#line 732 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1636,10 +1910,10 @@ contains
         var%name = "(global)"
         call snc_put_attf(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_put_gattf
-#line 710 "simple_netcdf.F90.erb"
+#line 747 "simple_netcdf.F90.erb"
 
 
-#line 680 "simple_netcdf.F90.erb"
+#line 717 "simple_netcdf.F90.erb"
     ! :nodoc:
     subroutine snc_put_attd(file, var, attname, attvalue, src_file, src_line)
         type(SNCFile), intent(in) :: file
@@ -1655,7 +1929,7 @@ contains
         call snc_handle_error(nf90_put_att(file%ncid, var%id, attname, attvalue), &
             err_msg, src_file, src_line)
     end subroutine snc_put_attd
-#line 695 "simple_netcdf.F90.erb"
+#line 732 "simple_netcdf.F90.erb"
 
 
     ! :nodoc:
@@ -1671,10 +1945,10 @@ contains
         var%name = "(global)"
         call snc_put_attd(file, var, attname, attvalue, src_file, src_line)
     end subroutine snc_put_gattd
-#line 710 "simple_netcdf.F90.erb"
+#line 747 "simple_netcdf.F90.erb"
 
 
-#line 713 "simple_netcdf.F90.erb"
+#line 750 "simple_netcdf.F90.erb"
 
 
     ! Finish the NetCDF data definition and prepare for reading. Call when

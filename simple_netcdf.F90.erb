@@ -35,6 +35,14 @@ module SimpleNetCDF
         module procedure snc_cf_write_coords3f, snc_cf_write_coords3d
     end interface snc_cf_write_coords
 
+    ! Open a NetCDF file and read the given variable.
+    interface snc_open_var
+        module procedure snc_open_var1i, snc_open_var1f, snc_open_var1d
+        module procedure snc_open_var2i, snc_open_var2f, snc_open_var2d
+        module procedure snc_open_var3i, snc_open_var3f, snc_open_var3d
+        module procedure snc_open_var4i, snc_open_var4f, snc_open_var4d
+    end interface snc_open_var
+
     ! read 1-4 dimensional arrays of type integer, float (real*4)
     ! or double (real*8).
     interface snc_read
@@ -337,6 +345,35 @@ contains
 
 
 % end
+
+
+    ! OPEN FILE AND READ VARIABLE ---
+
+% (1..4).each do |n|
+%   "ifd".each_char do |t|
+    ! :nodoc:
+    subroutine snc_open_var<%= n %><%= t %>(filename, varname, data, timestep, &
+        units, src_file, src_line)
+        character(*), intent(in) :: filename, varname
+        <%= TYPE[t] %>, pointer :: data(<%= ([':'] * n).join(',') %>)
+        integer, intent(in), optional :: timestep
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: file
+        type(SNCVar) :: var
+
+        file = snc_open(filename, src_file = src_file, src_line = src_line)
+        var = snc_inq_var(file, varname, units, src_file = src_file, src_line = src_line)
+        call snc_read(file, var, data, timestep, src_file = src_file, src_line = src_line)
+        call snc_close(file, src_file = src_file, src_line = src_line)
+    end subroutine snc_open_var<%= n %><%= t %>
+
+
+%   end
+
+% end
+
 
 
     ! OPEN SECTION ---

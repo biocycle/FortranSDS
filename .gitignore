@@ -7,3 +7,4 @@ test/cf_nc
 nc2code/nc2code
 test/timestep_nc
 test/cf_nc_z
+test/open_var
