@@ -47,13 +47,18 @@ NC2CODE_OBJS = nc2code/nc2code.o nc2code/generate_f90.o nc2code/sds_nc.o nc2code
 .f90.o:
 	$(F90) $(FFLAGS) -c $< -o $@
 
-all: test nc2code/nc2code
+all: test nc2code/nc2code doc
 
 simple_netcdf.F90: simple_netcdf.F90.erb
 	tools/ferb $< >$@
 
 nc2code/nc2code: $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
+
+doc: doc/simple_netcdf.html
+
+doc/simple_netcdf.html: simple_netcdf.F90
+	tools/fdoc/bin/fdoc -t "Simple SDS NetCDF Module" $^ > $@
 
 test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line \
 	test/cf_nc test/cf_nc_z test/timestep_nc test/open_var

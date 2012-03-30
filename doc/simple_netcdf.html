@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple SDS NetCDF Module</title>
+  </head>
+  <body>
+<h1>Documentation For Simple SDS NetCDF Module</h1>
+
+<h2>Modules</h2>
+<ul>
+<li><a href='#mod_SimpleNetCDF'>SimpleNetCDF</a></li>
+</ul>
+<h2>Types</h2>
+<ul>
+<li><a href='#mod_SimpleNetCDF_type_SNCFile'>SNCFile</a></li>
+<li><a href='#mod_SimpleNetCDF_type_SNCVar'>SNCVar</a></li>
+</ul>
+<h2>Interfaces</h2>
+<ul>
+<li><a href='#mod_SimpleNetCDF_iface_snc_get_dim'>snc_get_dim</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_cf_write_coords'>snc_cf_write_coords</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_open_var'>snc_open_var</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_read'>snc_read</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_write'>snc_write</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_get_att'>snc_get_att</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_get_global_att'>snc_get_global_att</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_put_att'>snc_put_att</a></li>
+<li><a href='#mod_SimpleNetCDF_iface_snc_put_global_att'>snc_put_global_att</a></li>
+</ul>
+<h2>Subroutines and Functions</h2>
+<ul>
+<li><a href='#mod_SimpleNetCDF_fun_snc_cf_grid_create'>snc_cf_grid_create</a></li>
+<li><a href='#mod_SimpleNetCDF_sub_snc_cf_grid_vertical'>snc_cf_grid_vertical</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_cf_def_var'>snc_cf_def_var</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_open'>snc_open</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_create'>snc_create</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_get_dimid'>snc_get_dimid</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_get_dim_by_id'>snc_get_dim_by_id</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_get_dim_by_name'>snc_get_dim_by_name</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_def_dim'>snc_def_dim</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_inq_var'>snc_inq_var</a></li>
+<li><a href='#mod_SimpleNetCDF_fun_snc_def_var'>snc_def_var</a></li>
+<li><a href='#mod_SimpleNetCDF_sub_snc_enddef'>snc_enddef</a></li>
+<li><a href='#mod_SimpleNetCDF_sub_snc_close'>snc_close</a></li>
+<li><a href='#mod_SimpleNetCDF_sub_snc_handle_error'>snc_handle_error</a></li>
+</ul>
+<hr/>
+<a name='mod_SimpleNetCDF'><h2>Module SimpleNetCDF</h2></a>
+
+<p>NetCDF wrapper functions to make it easier to read and write NetCDF files,
+especially CF-compliant files.  Also gives more useful error messages.</p>
+
+<p>TO DOCUMENT: HAVE_NETCDF4 preprocessor flag.</p>
+
+<a name='mod_SimpleNetCDF_type_SNCFile'><h3>Type SNCFile</h3></a>
+
+<pre>    type SNCFile
+        integer :: ncid
+        character(512) :: name
+        integer :: ndims, cfdimids(5)
+        character(32) :: z_name 
+    end 
+</pre>
+<p>Contains information about the NetCDF file which the SimpleNetCDF
+module uses for more detailed error reporting and other API
+simplification. You will not normally need to access these values
+directly.</p>
+<a name='mod_SimpleNetCDF_type_SNCVar'><h3>Type SNCVar</h3></a>
+
+<pre>    type SNCVar
+        integer :: id
+        character(128) :: name
+        integer :: ndims, dims(6)
+    end 
+</pre>
+<p>Keeps information about the NetCDF variable for the SimpleNetCDF
+module to give more detailed error reports.  You will not normally need
+to access the id or name members.  To make your life easier, you should
+access the following members:</p><dl>
+  <dt>ndims</dt>
+  <dd>The variable's number of dimensions.</dd>
+  <dt>dims</dt>
+  <dd>The size of each dimension.  Only dims(1:var%ndims) are valid.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_get_dim'><h3>Interface snc_get_dim</h3></a>
+
+<pre>    interface snc_get_dim
+        module procedure snc_get_dim_by_id
+        module procedure snc_get_dim_by_name
+    end 
+</pre>
+<p>Returns the size of the given dimension.  It has two forms, one where
+you lookup the dimension <a href="#mod\_SimpleNetCDF\_fun\_snc\_get\_dim\_by\_id">by id</a>
+and the other <a href="#mod\_SimpleNetCDF\_snc\_get\_dim\_by\_name">by name</a>.
+You can get the dimension with snc_get_dimid; you always have to know
+the dimension's name.</p><dl>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_cf_write_coords'><h3>Interface snc_cf_write_coords</h3></a>
+
+<pre>    interface snc_cf_write_coords
+        module procedure snc_cf_write_coords3f
+        module procedure snc_cf_write_coords3d
+    end 
+</pre>
+<p>Write coordinate variables to a CF-compliant NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>an SNCFile type returned by snc_create.</dd>
+  <dt>lon</dt>
+  <dd>an array of longitude values for the grid points.</dd>
+  <dt>lat</dt>
+  <dd>an array of latitude values for the grid points.</dd>
+  <dt>z</dt>
+  <dd>an array of vertical coordinates for the grid points.  Only present
+in 3d files.</dd>
+  <dt>time</dt>
+  <dd>an array of time values for each timestep in the file.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_open_var'><h3>Interface snc_open_var</h3></a>
+
+<pre>    interface snc_open_var
+        module procedure snc_open_var4i
+        module procedure snc_open_var4f
+        module procedure snc_open_var4d
+    end 
+</pre>
+<p>Open a NetCDF file and read the given variable in one shot.</p><dl>
+  <dt>filename</dt>
+  <dd>the name of the NetCDF file to open.</dd>
+  <dt>varname</dt>
+  <dd>the name of the variable in the file to read.</dd>
+  <dt>data</dt>
+  <dd>a pointer to an array with the same type as the variable in
+the file, and with the same number of dimensions or one less dimension
+if reading one timestep.</dd>
+  <dt>timestep</dt>
+  <dd>optional.  Specify the timestep to read, subsetting the variable
+along the slowest-changing dimension.</dd>
+  <dt>units</dt>
+  <dd>optional.  Returns the units attribute for the variable.  Make sure
+the string is big enough to hold the units value.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_read'><h3>Interface snc_read</h3></a>
+
+<pre>    interface snc_read
+        module procedure snc_read4i
+        module procedure snc_read4f
+        module procedure snc_read4d
+    end 
+</pre>
+<p>Read 1-4 dimensional arrays of type integer, float (real*4)
+or double (real*8).</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type you want to read from.</dd>
+  <dt>var</dt>
+  <dd>the SNCVar type you want to read.</dd>
+  <dt>data</dt>
+  <dd>an unallocated array pointer to read the data into.  Must be
+unassociated and be declared with the right number of dimensions.</dd>
+  <dt>timestep</dt>
+  <dd>optional. The timestep to read.  This subsets the variable,
+requiring an array with one less dimension than the variable has in
+the NetCDF file.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_write'><h3>Interface snc_write</h3></a>
+
+<pre>    interface snc_write
+        module procedure snc_write4i
+        module procedure snc_write4f
+        module procedure snc_write4d
+    end 
+</pre>
+<p>Write 1-4 dimensional arrays of type integer, float (real*4) or double
+(real*8).</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type you want to write into.</dd>
+  <dt>var</dt>
+  <dd>the SNCVar type you want to write.</dd>
+  <dt>data</dt>
+  <dd>an array of the type and dimension number matching the variable's
+definition, often given in the call to snc_def_var or snc_cf_def_var.</dd>
+  <dt>timestep</dt>
+  <dd>optional. Give this argument if you wish to write only a single
+timestep's worth of data at this time.  In that case, your data array
+will have one less dimension than normal.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_get_att'><h3>Interface snc_get_att</h3></a>
+
+<pre>    interface snc_get_att
+        module procedure snc_get_att_str
+        module procedure snc_get_atti
+        module procedure snc_get_attf
+        module procedure snc_get_attd
+    end 
+</pre>
+<p>Read a variable's attribute from the NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to read the attribute from.</dd>
+  <dt>var</dt>
+  <dd>the SNCVar type to read the attribute from.</dd>
+  <dt>attname</dt>
+  <dd>the name of the attribute.</dd>
+  <dt>attvalue</dt>
+  <dd>the variable to read the attribute's value into.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_get_global_att'><h3>Interface snc_get_global_att</h3></a>
+
+<pre>    interface snc_get_global_att
+        module procedure snc_get_gatt_str
+        module procedure snc_get_gatti
+        module procedure snc_get_gattf
+        module procedure snc_get_gattd
+    end 
+</pre>
+<p>Read a global attribute from the NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to read the attribute from.</dd>
+  <dt>attname</dt>
+  <dd>the name of the attribute.</dd>
+  <dt>attvalue</dt>
+  <dd>the variable to read the attribute's value into.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_put_att'><h3>Interface snc_put_att</h3></a>
+
+<pre>    interface snc_put_att
+        module procedure snc_put_att_str
+        module procedure snc_put_atti
+        module procedure snc_put_attf
+        module procedure snc_put_attd
+    end 
+</pre>
+<p>Write an attribute to a variable in the NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to write the attribute to.</dd>
+  <dt>var</dt>
+  <dd>The SNCVar type to write the attribute to.</dd>
+  <dt>attname</dt>
+  <dd>the name of the attribute.</dd>
+  <dt>attvalue</dt>
+  <dd>the attribute's value.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_iface_snc_put_global_att'><h3>Interface snc_put_global_att</h3></a>
+
+<pre>    interface snc_put_global_att
+        module procedure snc_put_gatt_str
+        module procedure snc_put_gatti
+        module procedure snc_put_gattf
+        module procedure snc_put_gattd
+    end 
+</pre>
+<p>Write a global attribute to the NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to write the attribute to.</dd>
+  <dt>attname</dt>
+  <dd>the name of the attribute.</dd>
+  <dt>attvalue</dt>
+  <dd>the attribute's value.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_cf_grid_create'><h3>Function snc_cf_grid_create</h3></a>
+
+<pre>    function snc_cf_grid_create
+        character(*), intent(in) :: filename
+        integer, intent(in) :: lat_size
+        integer, intent(in) :: lon_size
+        character(*), intent(in) :: time_units
+        character(*), intent(in) :: calendar
+        character(*), intent(in), optional :: title
+        character(*), intent(in), optional :: source
+        logical, intent(in), optional :: overwrite
+        logical, intent(in), optional :: nc3_file
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: snc_cf_grid_create
+    end 
+</pre>
+<p>Create a new CF-compliant gridded data file.</p><dl>
+  <dt>filename</dt>
+  <dd>the path name of the NetCDF file to create.</dd>
+  <dt>lon_size</dt>
+  <dd>the number of longitude grid points.</dd>
+  <dt>lat_size</dt>
+  <dd>the number of grid points along the latitude (Y)</dd>
+  <dt>time_units</dt>
+  <dd>A UDUNITS-compatible time format like:
+
+<pre><code>seconds since 2012-02-01 03:05:22.0 -7:00
+</code></pre>
+
+so we have a time unit (seconds) since an absolute time, namely 3
+hours, 5 minutes and 22 seconds into February 1 2012, with timezone
+offset of -7 hours (Mountain Standard Time).  Often you will want
+to start at the beginning of a particular day and use UTC time
+(no timezone offset), so you can use a simpler format like:
+
+<pre><code>hours since 2012-01-01
+</code></pre>
+
+Note that the time unit can be anything allowed by the UDUNITS
+package, but most commonly this will be seconds, hours or days.
+Time units of months or years can cause problems because both years
+and months are of varying lengths, so their use is discouraged.</dd>
+  <dt>calendar</dt>
+  <dd>specifies the type of calendar so that dates can be properly
+calculated.  Normally you will want to use SNC_STANDARD_CAL if you
+are dealing with the standard western (gregorian) calendar for,
+e.g. satellite data.  If you are dealing with a gregorian calendar
+without leap years (every year is 365 days long), use SNC_NOLEAP.
+See the <a href="http://cf-pcmdi.llnl.gov/">CF Docs</a> for other calendars.</dd>
+  <dt>title</dt>
+  <dd>optional. "A succinct description of what is in the dataset."
+e.g. "CO2 fluxes".</dd>
+  <dt>source</dt>
+  <dd>optional. "The method of production of the original data. If it
+was model-generated, source should name the model and its version, as
+specifically as could be useful.  If it is observational, source
+should characterize it..." e.g. "radiosonde" or "SiB 3".</dd>
+  <dt>overwrite</dt>
+  <dd>optional. If true, will allow existing files of the given
+filename to be overwritten.</dd>
+  <dt>nc3_file</dt>
+  <dd>optional. If true, write a NetCDF version 3 file.  This older
+file format does not support compression or parallel I/O, so this
+option is most useful for compatibility with older software.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<p>Other attributes you might consider adding with snc_put_att():</p>
+
+<ul>
+<li>comment: "Miscellaneous information about the data or methods used
+  to produce it."</li>
+<li>history: A list of programs that modified this file, what and when
+  they did it.</li>
+<li>institution: The name of the facility where the data was created.</li>
+</ul>
+
+<a name='mod_SimpleNetCDF_sub_snc_cf_grid_vertical'><h3>Subroutine snc_cf_grid_vertical</h3></a>
+
+<pre>    subroutine snc_cf_grid_vertical
+        type(SNCFile), intent(inout) :: file
+        integer, intent(in) :: z_size
+        character(*), intent(in) :: name
+        character(*), intent(in) :: long_name
+        character(*), intent(in) :: units
+        character(*), intent(in) :: positive
+        character(*), intent(in), optional :: standard_name
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+    end 
+</pre>
+<p>Define a CF-compliant vertical coordinate for a NetCDF file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile returned by snc_cf_grid_create().</dd>
+  <dt>z_size</dt>
+  <dd>the size of the vertical dimension.</dd>
+  <dt>name</dt>
+  <dd>the name of the vertical dimension and coordinate variable.</dd>
+  <dt>long_name</dt>
+  <dd>the long name for the vertical coordinate variable.</dd>
+  <dt>units</dt>
+  <dd>the units for the vertical coordinate variable.</dd>
+  <dt>positive</dt>
+  <dd>the direction of positive values, either "up" or "down".</dd>
+  <dt>standard_name</dt>
+  <dd>optional. a name from
+http://cf-pcmdi.llnl.gov/documents/cf-standard-names/
+matching this variable.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_cf_def_var'><h3>Function snc_cf_def_var</h3></a>
+
+<pre>    function snc_cf_def_var
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: varname
+        character(*), intent(in) :: long_name
+        character(*), intent(in) :: units
+        integer, intent(in) :: type
+        integer, intent(in), optional :: dimids(:)
+        character(*), intent(in), optional :: standard_name
+        real, intent(in), optional :: missing_value
+        character(*), intent(in), optional :: fill_value
+        character(*), intent(in), optional :: valid_min
+        character(*), intent(in), optional :: valid_max
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: snc_cf_def_var
+    end 
+</pre>
+<p>Define a CF-compliant NetCDF variable.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile returned from snc_cf_grid_create().</dd>
+  <dt>varname</dt>
+  <dd>the name of the variable.</dd>
+  <dt>long_name</dt>
+  <dd>a more descriptive name for the variable.</dd>
+  <dt>type</dt>
+  <dd>a type for the variable; usually one of SNC_INT, SNC_FLOAT or
+SNC_DOUBLE.</dd>
+  <dt>units</dt>
+  <dd>the units for the variable, compatible with UDUNITS.</dd>
+  <dt>dimids</dt>
+  <dd>optional.  An array of dimension IDs.  The default is to use
+the full (time, lat, lon) or (time,<vert>,lat,lon) dimensions
+defined with snc_cf_grid_create() and snc_cf_grid_vertical().</dd>
+  <dt>standard_name</dt>
+  <dd> optional. a name from
+http://cf-pcmdi.llnl.gov/documents/cf-standard-names/
+matching this variable.</dd>
+  <dt>missing_value</dt>
+  <dd>optional. A value used for missing data in the variable.
+NOT FOR COORDINATE VARIABLES.</dd>
+  <dt>fill_value</dt>
+  <dd>optional. A value for missing or undefined data.
+NOT FOR COORDINATE VARIABLES.</dd>
+  <dt>valid_min</dt>
+  <dd>optional. Smallest valid value in the variable.</dd>
+  <dt>valid_max</dt>
+  <dd>optional. Largest valid value in the variable.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_open'><h3>Function snc_open</h3></a>
+
+<pre>    function snc_open
+        character(*), intent(in) :: filename
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: snc_open
+    end 
+</pre>
+<p>Open a NetCDF file for reading.</p><dl>
+  <dt>filename</dt>
+  <dd>the path to the file you wish to open.  Must already exist.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_create'><h3>Function snc_create</h3></a>
+
+<pre>    function snc_create
+        character(*), intent(in) :: filename
+        logical, intent(in), optional :: overwrite
+        logical, intent(in), optional :: nc3_file
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCFile) :: snc_create
+    end 
+</pre>
+<p>Open a NetCDF file for writing.</p><dl>
+  <dt>filename</dt>
+  <dd>the path to the file to create.  It should end in ".nc".</dd>
+  <dt>overwrite</dt>
+  <dd>optional. If true, will allow existing files of the given
+filename to be overwritten.</dd>
+  <dt>nc3_file</dt>
+  <dd>optional. If true, write a NetCDF version 3 file.  This older
+file format does not support compression or parallel I/O, so this
+option is most useful for compatibility with older software.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_get_dimid'><h3>Function snc_get_dimid</h3></a>
+
+<pre>    function snc_get_dimid
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: dimname
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_get_dimid
+    end 
+</pre>
+<p>Returns the NetCDF ID for the given dimension name.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to get the dimension id from.</dd>
+  <dt>dimname</dt>
+  <dd>the name of the dimension to look up.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_get_dim_by_id'><h3>Function snc_get_dim_by_id</h3></a>
+
+<pre>    function snc_get_dim_by_id
+        type(SNCFile), intent(in) :: file
+        integer, intent(in) :: dimid
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_get_dim_by_id
+    end 
+</pre>
+<p>Returns the size of the dimension by ID.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to get the dimension size from.</dd>
+  <dt>dimid</dt>
+  <dd>the ID number of the dimension to look up.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_get_dim_by_name'><h3>Function snc_get_dim_by_name</h3></a>
+
+<pre>    function snc_get_dim_by_name
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: dimname
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_get_dim_by_name
+    end 
+</pre>
+<p>Returns the size of the named dimension.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to get the dimension size from.</dd>
+  <dt>dimname</dt>
+  <dd>the name of the dimension to look up.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_def_dim'><h3>Function snc_def_dim</h3></a>
+
+<pre>    function snc_def_dim
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: dimname
+        integer, intent(in) :: dimsize
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        integer :: snc_def_dim
+    end 
+</pre>
+<p>Defines a dimension with the given name and size, then returns its id
+for use in defining variables later.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to define the dimension in.</dd>
+  <dt>dimname</dt>
+  <dd>the name for the new dimension.</dd>
+  <dt>dimsize</dt>
+  <dd>the length of the new dimension.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_inq_var'><h3>Function snc_inq_var</h3></a>
+
+<pre>    function snc_inq_var
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: varname
+        character(*), intent(out), optional :: units
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: snc_inq_var
+    end 
+</pre>
+<p>Looks for the given variable name in the NetCDF file and gets its
+dimensions.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to look in.</dd>
+  <dt>varname</dt>
+  <dd>the name of the variable to inquire about.</dd>
+  <dt>units</dt>
+  <dd>optional.  Reads the 'units' attribute into this</dd>
+</dl>
+
+<p>argument.  expect: optional.  An array of integers giving the
+  expected size of each variable dimension.  If these do not match
+  the actual size of the variable, an error message will be
+  printed and the program stopped.</p><dl>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_fun_snc_def_var'><h3>Function snc_def_var</h3></a>
+
+<pre>    function snc_def_var
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in) :: varname
+        integer, intent(in) :: vartype
+        integer, intent(in), dimension(:) :: dimids
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+        type(SNCVar) :: snc_def_var
+    end 
+</pre>
+<p>Define a variable for the NetCDF file with the given name and type; the
+dimids are the values returned by snc_def_dim.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type</dd>
+  <dt>varname</dt>
+  <dd>the name for the new variable.</dd>
+  <dt>vartype</dt>
+  <dd>One of: SNC_INT, SNC_FLOAT, SNC_DOUBLE. These match integers,
+single-precision real (real*4), and double-precision reals (real*8)
+respectively.</dd>
+  <dt>dimids</dt>
+  <dd>determines the size of each dimension of the variable.  It is an
+array of dimension ID numbers.  These ID numbers are returned by
+snc_def_dim.  List these in the same order as you do in the Fortran
+variable declaration.</dd>
+  <dt>def_lev</dt>
+  <dd>optional. If you are using NetCDF4, this overrides the default
+compression level.  The valid range is 1-9.  1 is fast but doesn't
+compress very much; 9 is slow but tries the hardest to compress the
+data.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_sub_snc_enddef'><h3>Subroutine snc_enddef</h3></a>
+
+<pre>    subroutine snc_enddef
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+    end 
+</pre>
+<p>Finish the NetCDF data definition and prepare for reading or writing.
+Call when you are ready to write variables to the file.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to put into data read/write mode.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_sub_snc_close'><h3>Subroutine snc_close</h3></a>
+
+<pre>    subroutine snc_close
+        type(SNCFile), intent(in) :: file
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+    end 
+</pre>
+<p>Closes the NetCDF file after you are done reading from or writing to it.</p><dl>
+  <dt>file</dt>
+  <dd>the SNCFile type to close.</dd>
+  <dt>src_file</dt>
+  <dd>optional. The source file name to use when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+  <dt>src_line</dt>
+  <dd>optional. The line number in the source file where this
+subroutine was called from.  Used when reporting errors.
+Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
+</dl>
+
+<a name='mod_SimpleNetCDF_sub_snc_handle_error'><h3>Subroutine snc_handle_error</h3></a>
+
+<pre>    subroutine snc_handle_error
+        integer, intent(in) :: status
+        character(*), intent(in), optional :: message
+        character(*), intent(in), optional :: src_file
+        integer, intent(in), optional :: src_line
+    end 
+</pre>
+<p>You will only use this subroutine if you call NetCDF functions directly.
+Checks the return status of a NetCDF function.  If there is an error,
+it prints the NetCDF error string, the error message if given, then
+stops the program.</p><dl>
+  <dt>status</dt>
+  <dd>the integral status value returned by the NetCDF function.</dd>
+  <dt>message</dt>
+  <dd>the message to print when an error occurs.  Usually used to
+explain the action that caused the error.</dd>
+  <dt>src_file</dt>
+  <dd>optional.  The source file of the original, possibly erroneous
+NetCDF library call.  Include this for maximum debuggability, usually
+through a macro in simple_netcdf.inc which uses the C preprocessor
+define __FILE__.</dd>
+  <dt>src_line</dt>
+  <dd>The source file line number of the original, possibly erroneous
+NetCDF library call.  Include this for maximum debuggability, usually
+through a macro in simple_netcdf.inc which uses the C preprocessor
+define __LINE__.</dd>
+</dl>
+
+  </body>
+</html>
