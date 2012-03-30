@@ -109,23 +109,57 @@ case-sensitive filesystem.
 Examples
 ========
 
-Reading variables from a NetCDF file is quite simple.  You open the file, look up the variable then read it into an appropriate pointer array before closing the file:
+Often, you'd just like to read a variable in from a NetCDF file and that's it.  Well, there's a function for that!
 
     ! optional
     #include "simple_netcdf.inc"
 
+    use SimpleNetCDF
+    implicit none
+
+    real*4, pointer :: var(:,:,:)
+
+    call snc_open_var("some.nc", "varname", var)
+
+If you'd also like the units for that variable, that's a simple shortcut:
+
+    call snc_open_var("some.nc", "varname", var, units = units)
+
+What if you need just one timestep's worth of the variable?  That's another shortcut:
+
+    real*4, pointer :: var2(:,:)
+
+    call snc_open_var("same.nc", "varname", var2, timestep = 2)
+
+Note that this is a new variable with 2 instead of 3 dimensions, because one of the dimensions for the full variable is time.
+
+What if we want to do a little more?  There are more function calls, but it's still fairly simple and has good error reporting:
+
+    ! optional
+    #include "simple_netcdf.inc"
+
+    use SimpleNetCDF
+    implicit none
+
     type(SNCFile) :: file
-    type(SNCVar) :: t_var
-    real*4, pointer :: t(:,:)
+    type(SNCVar) :: t_var, u_var
+    real*4, pointer :: t(:,:), u(:,:)
     character(32) :: units
 
     file = snc_open("some.nc")
+
     t_var = snc_inq_var(file, "t", units) ! units is optional here
     call snc_read(file, t_var, t)
+
+    t_var = snc_inq_var(file, "u")        ! see? optional
+    call snc_read(file, u_var, u)
+
     call snc_close(file)
 
+Writing is always more work, but making a CF-compliant NetCDF file is not as bad as it could be:
 
-Writing a CF-compliant NetCDF file is a little more complex:
+    use SimpleNetCDF
+    implicit none
 
     character(*) :: filename
     type(SNCFile) :: file
