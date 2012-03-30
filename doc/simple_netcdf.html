@@ -76,7 +76,8 @@ directly.</p>
 <p>Keeps information about the NetCDF variable for the SimpleNetCDF
 module to give more detailed error reports.  You will not normally need
 to access the id or name members.  To make your life easier, you should
-access the following members:</p><dl>
+access the following members:</p><b>Parameters:</b>
+<dl>
   <dt>ndims</dt>
   <dd>The variable's number of dimensions.</dd>
   <dt>dims</dt>
@@ -94,7 +95,8 @@ access the following members:</p><dl>
 you lookup the dimension <a href="#mod\_SimpleNetCDF\_fun\_snc\_get\_dim\_by\_id">by id</a>
 and the other <a href="#mod\_SimpleNetCDF\_snc\_get\_dim\_by\_name">by name</a>.
 You can get the dimension with snc_get_dimid; you always have to know
-the dimension's name.</p><dl>
+the dimension's name.</p><b>Parameters:</b>
+<dl>
   <dt>src_file</dt>
   <dd>optional. The source file name to use when reporting errors.
 Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
@@ -111,7 +113,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_cf_write_coords3d
     end 
 </pre>
-<p>Write coordinate variables to a CF-compliant NetCDF file.</p><dl>
+<p>Write coordinate variables to a CF-compliant NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>an SNCFile type returned by snc_create.</dd>
   <dt>lon</dt>
@@ -140,7 +143,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_open_var4d
     end 
 </pre>
-<p>Open a NetCDF file and read the given variable in one shot.</p><dl>
+<p>Open a NetCDF file and read the given variable in one shot.</p><b>Parameters:</b>
+<dl>
   <dt>filename</dt>
   <dd>the name of the NetCDF file to open.</dd>
   <dt>varname</dt>
@@ -173,7 +177,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Read 1-4 dimensional arrays of type integer, float (real*4)
-or double (real*8).</p><dl>
+or double (real*8).</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type you want to read from.</dd>
   <dt>var</dt>
@@ -203,7 +208,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Write 1-4 dimensional arrays of type integer, float (real*4) or double
-(real*8).</p><dl>
+(real*8).</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type you want to write into.</dd>
   <dt>var</dt>
@@ -233,7 +239,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_get_attd
     end 
 </pre>
-<p>Read a variable's attribute from the NetCDF file.</p><dl>
+<p>Read a variable's attribute from the NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to read the attribute from.</dd>
   <dt>var</dt>
@@ -260,7 +267,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_get_gattd
     end 
 </pre>
-<p>Read a global attribute from the NetCDF file.</p><dl>
+<p>Read a global attribute from the NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to read the attribute from.</dd>
   <dt>attname</dt>
@@ -285,7 +293,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_put_attd
     end 
 </pre>
-<p>Write an attribute to a variable in the NetCDF file.</p><dl>
+<p>Write an attribute to a variable in the NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to write the attribute to.</dd>
   <dt>var</dt>
@@ -312,7 +321,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         module procedure snc_put_gattd
     end 
 </pre>
-<p>Write a global attribute to the NetCDF file.</p><dl>
+<p>Write a global attribute to the NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to write the attribute to.</dd>
   <dt>attname</dt>
@@ -345,7 +355,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         type(SNCFile) :: snc_cf_grid_create
     end 
 </pre>
-<p>Create a new CF-compliant gridded data file.</p><dl>
+<p>Create a new CF-compliant gridded data file.</p><b>Parameters:</b>
+<dl>
   <dt>filename</dt>
   <dd>the path name of the NetCDF file to create.</dd>
   <dt>lon_size</dt>
@@ -426,7 +437,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         integer, intent(in), optional :: src_line
     end 
 </pre>
-<p>Define a CF-compliant vertical coordinate for a NetCDF file.</p><dl>
+<p>Define a CF-compliant vertical coordinate for a NetCDF file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile returned by snc_cf_grid_create().</dd>
   <dt>z_size</dt>
@@ -471,7 +483,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         type(SNCVar) :: snc_cf_def_var
     end 
 </pre>
-<p>Define a CF-compliant NetCDF variable.</p><dl>
+<p>Define a CF-compliant NetCDF variable.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile returned from snc_cf_grid_create().</dd>
   <dt>varname</dt>
@@ -519,7 +532,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         type(SNCFile) :: snc_open
     end 
 </pre>
-<p>Open a NetCDF file for reading.</p><dl>
+<p>Open a NetCDF file for reading.</p><b>Parameters:</b>
+<dl>
   <dt>filename</dt>
   <dd>the path to the file you wish to open.  Must already exist.</dd>
   <dt>src_file</dt>
@@ -542,7 +556,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         type(SNCFile) :: snc_create
     end 
 </pre>
-<p>Open a NetCDF file for writing.</p><dl>
+<p>Open a NetCDF file for writing.</p><b>Parameters:</b>
+<dl>
   <dt>filename</dt>
   <dd>the path to the file to create.  It should end in ".nc".</dd>
   <dt>overwrite</dt>
@@ -571,7 +586,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         integer :: snc_get_dimid
     end 
 </pre>
-<p>Returns the NetCDF ID for the given dimension name.</p><dl>
+<p>Returns the NetCDF ID for the given dimension name.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to get the dimension id from.</dd>
   <dt>dimname</dt>
@@ -595,7 +611,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         integer :: snc_get_dim_by_id
     end 
 </pre>
-<p>Returns the size of the dimension by ID.</p><dl>
+<p>Returns the size of the dimension by ID.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to get the dimension size from.</dd>
   <dt>dimid</dt>
@@ -619,7 +636,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         integer :: snc_get_dim_by_name
     end 
 </pre>
-<p>Returns the size of the named dimension.</p><dl>
+<p>Returns the size of the named dimension.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to get the dimension size from.</dd>
   <dt>dimname</dt>
@@ -645,7 +663,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Defines a dimension with the given name and size, then returns its id
-for use in defining variables later.</p><dl>
+for use in defining variables later.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to define the dimension in.</dd>
   <dt>dimname</dt>
@@ -673,7 +692,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Looks for the given variable name in the NetCDF file and gets its
-dimensions.</p><dl>
+dimensions.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to look in.</dd>
   <dt>varname</dt>
@@ -685,7 +705,8 @@ dimensions.</p><dl>
 <p>argument.  expect: optional.  An array of integers giving the
   expected size of each variable dimension.  If these do not match
   the actual size of the variable, an error message will be
-  printed and the program stopped.</p><dl>
+  printed and the program stopped.</p><b>Parameters:</b>
+<dl>
   <dt>src_file</dt>
   <dd>optional. The source file name to use when reporting errors.
 Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
@@ -708,7 +729,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Define a variable for the NetCDF file with the given name and type; the
-dimids are the values returned by snc_def_dim.</p><dl>
+dimids are the values returned by snc_def_dim.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type</dd>
   <dt>varname</dt>
@@ -745,7 +767,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
     end 
 </pre>
 <p>Finish the NetCDF data definition and prepare for reading or writing.
-Call when you are ready to write variables to the file.</p><dl>
+Call when you are ready to write variables to the file.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to put into data read/write mode.</dd>
   <dt>src_file</dt>
@@ -765,7 +788,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         integer, intent(in), optional :: src_line
     end 
 </pre>
-<p>Closes the NetCDF file after you are done reading from or writing to it.</p><dl>
+<p>Closes the NetCDF file after you are done reading from or writing to it.</p><b>Parameters:</b>
+<dl>
   <dt>file</dt>
   <dd>the SNCFile type to close.</dd>
   <dt>src_file</dt>
@@ -789,7 +813,8 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
 <p>You will only use this subroutine if you call NetCDF functions directly.
 Checks the return status of a NetCDF function.  If there is an error,
 it prints the NetCDF error string, the error message if given, then
-stops the program.</p><dl>
+stops the program.</p><b>Parameters:</b>
+<dl>
   <dt>status</dt>
   <dd>the integral status value returned by the NetCDF function.</dd>
   <dt>message</dt>
