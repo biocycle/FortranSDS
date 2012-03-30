@@ -14,6 +14,43 @@ static const char CHECK_FUNCTION[] =
 "end subroutine checknc\n"
 ;
 
+static void print_dimension(FILE *fout, int count)
+{
+    if (count <= 0) {
+        fputs(" :: ", fout);
+    } else {
+        fputs(", dimension(:", fout);
+        for (; count > 1; count--)
+            fputs(",:", fout);
+        fputs(") :: ", fout);
+    }
+}
+
+static void print_att_type(FILE *fout, SDSAttInfo *ai)
+{
+    switch (ai->type) {
+    case SDS_NO_TYPE:
+        abort();
+    case SDS_BYTE:
+    case SDS_SHORT:
+    case SDS_INT:
+        fputs("integer", fout);
+        print_dimension(fout, ai->count);
+        break;
+    case SDS_FLOAT:
+        fputs("real*4", fout);
+        print_dimension(fout, ai->count);
+        break;
+    case SDS_DOUBLE:
+        fputs("real*8", fout);
+        print_dimension(fout, ai->count);
+        break;
+    case SDS_STRING:
+        fprintf(fout, "character(%i) :: ", ai->count);
+        break;
+    }
+}
+
 static void generate_f90_att(FILE *fout, SDSInfo *sds)
 {
     SDSAttInfo *ai;
@@ -22,18 +59,20 @@ static void generate_f90_att(FILE *fout, SDSInfo *sds)
     int size = 0;
 
     fputs("\n\n! attribute variables\n", fout);
+    /* find max attribute size */
     for (ai = sds->gatts; ai != NULL; ai = ai->next) {
         int asize = ai->bytes * ai->count;
         if (asize > size) size = asize;
     }
+    /* print global attribute variables */
     for (ai = sds->gatts; ai != NULL; ai = ai->next) {
-        if (w >= MAX_WIDTH) {
+        /*if (w >= MAX_WIDTH) {*/
             w = 0;
-            fprintf(fout, "character(%i) :: ", size);
-        }
+            print_att_type(fout, ai);
+            /*}*/
 
-        fprintf(fout, "%s", ai->name);
-        if (ai->next) fputs(", ", fout);
+        fprintf(fout, "%s\n", ai->name);
+        /*if (ai->next) fputs(", ", fout);*/
 
         w++;
         if (w >= MAX_WIDTH)
@@ -41,23 +80,26 @@ static void generate_f90_att(FILE *fout, SDSInfo *sds)
     }
     fputs("\n", fout);
 
+    /* print var attribute variables */
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
         size = 0;
         for (ai = vi->atts; ai != NULL; ai = ai->next) {
             int asize = ai->bytes * ai->count;
             if (asize > size) size = asize;
         }
-        if (vi->atts)
-            fprintf(fout, "character(%i) :: ", size);
+        /*if (vi->atts)
+            fprintf(fout, "character(%i) :: ", size);*/
         for (ai = vi->atts; ai != NULL; ai = ai->next) {
-            fprintf(fout, "%s_%s", vi->name, ai->name);
-            if (ai->next) fputs(", ", fout);
+            print_att_type(fout, ai);
+            fprintf(fout, "%s_%s\n", vi->name, ai->name);
+            /*if (ai->next) fputs(", ", fout);*/
         }
         if (vi->atts)
             fputs("\n", fout);
     }
     fputs("\n\n", fout);
 
+    /* code to read global attributes */
     if (sds->gatts) {
         fputs("! read global attributes\n", fout);
         for (ai = sds->gatts; ai != NULL; ai = ai->next) {
@@ -67,6 +109,7 @@ static void generate_f90_att(FILE *fout, SDSInfo *sds)
         fputs("\n", fout);
     }
 
+    /* code to read var attributes */
     fputs("! read var attributes\n", fout);
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
         for (ai = vi->atts; ai != NULL; ai = ai->next) {
@@ -76,6 +119,7 @@ static void generate_f90_att(FILE *fout, SDSInfo *sds)
         }
         fputs("\n", fout);
     }
+
     fputs("\n", fout);
 }
 
