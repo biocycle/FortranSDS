@@ -14,9 +14,73 @@ static const char CHECK_FUNCTION[] =
 "end subroutine checknc\n"
 ;
 
-void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
+static void generate_f90_att(FILE *fout, SDSInfo *sds)
 {
     SDSAttInfo *ai;
+    SDSVarInfo *vi;
+    int w = MAX_WIDTH;
+    int size = 0;
+
+    fputs("\n\n! attribute variables\n", fout);
+    for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+        int asize = ai->bytes * ai->count;
+        if (asize > size) size = asize;
+    }
+    for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+        if (w >= MAX_WIDTH) {
+            w = 0;
+            fprintf(fout, "character(%i) :: ", size);
+        }
+
+        fprintf(fout, "%s", ai->name);
+        if (ai->next) fputs(", ", fout);
+
+        w++;
+        if (w >= MAX_WIDTH)
+            fputs("\n", fout);
+    }
+    fputs("\n", fout);
+
+    for (vi = sds->vars; vi != NULL; vi = vi->next) {
+        size = 0;
+        for (ai = vi->atts; ai != NULL; ai = ai->next) {
+            int asize = ai->bytes * ai->count;
+            if (asize > size) size = asize;
+        }
+        if (vi->atts)
+            fprintf(fout, "character(%i) :: ", size);
+        for (ai = vi->atts; ai != NULL; ai = ai->next) {
+            fprintf(fout, "%s_%s", vi->name, ai->name);
+            if (ai->next) fputs(", ", fout);
+        }
+        if (vi->atts)
+            fputs("\n", fout);
+    }
+    fputs("\n\n", fout);
+
+    if (sds->gatts) {
+        fputs("! read global attributes\n", fout);
+        for (ai = sds->gatts; ai != NULL; ai = ai->next) {
+            fprintf(fout, "call checknc( nf90_get_att(ncid, NF90_GLOBAL, \"%s\", %s) )\n",
+                    ai->name, ai->name);
+        }
+        fputs("\n", fout);
+    }
+
+    fputs("! read var attributes\n", fout);
+    for (vi = sds->vars; vi != NULL; vi = vi->next) {
+        for (ai = vi->atts; ai != NULL; ai = ai->next) {
+            fprintf(fout, "call checknc( nf90_get_att(ncid, %s_id, \"%s\", %s_%s) \
+)\n",
+                    vi->name, ai->name, vi->name, ai->name);
+        }
+        fputs("\n", fout);
+    }
+    fputs("\n", fout);
+}
+
+void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
+{
     SDSDimInfo *di;
     SDSVarInfo *vi;
 
@@ -78,64 +142,6 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     fputs(CHECK_FUNCTION, fout);
 
     if (generate_att) {
-        int w = MAX_WIDTH;
-        int size = 0;
-
-        fputs("\n\n! attribute variables\n", fout);
-        for (ai = sds->gatts; ai != NULL; ai = ai->next) {
-            int asize = ai->bytes * ai->count;
-            if (asize > size) size = asize;
-        }
-        for (ai = sds->gatts; ai != NULL; ai = ai->next) {
-            if (w >= MAX_WIDTH) {
-                w = 0;
-                fprintf(fout, "character(%i) :: ", size);
-            }
-
-            fprintf(fout, "%s", ai->name);
-            if (ai->next) fputs(", ", fout);
-
-            w++;
-            if (w >= MAX_WIDTH)
-                fputs("\n", fout);
-        }
-        fputs("\n", fout);
-
-        for (vi = sds->vars; vi != NULL; vi = vi->next) {
-            size = 0;
-            for (ai = vi->atts; ai != NULL; ai = ai->next) {
-                int asize = ai->bytes * ai->count;
-                if (asize > size) size = asize;
-            }
-            if (vi->atts)
-                fprintf(fout, "character(%i) :: ", size);
-            for (ai = vi->atts; ai != NULL; ai = ai->next) {
-                fprintf(fout, "%s_%s", vi->name, ai->name);
-                if (ai->next) fputs(", ", fout);
-            }
-            if (vi->atts)
-                fputs("\n", fout);
-        }
-        fputs("\n\n", fout);
-
-        if (sds->gatts) {
-            fputs("! read global attributes\n", fout);
-            for (ai = sds->gatts; ai != NULL; ai = ai->next) {
-                fprintf(fout, "call checknc( nf90_get_att(ncid, NF90_GLOBAL, \"%s\", %s) )\n",
-                        ai->name, ai->name);
-            }
-            fputs("\n", fout);
-        }
-
-        fputs("! read var attributes\n", fout);
-        for (vi = sds->vars; vi != NULL; vi = vi->next) {
-            for (ai = vi->atts; ai != NULL; ai = ai->next) {
-                fprintf(fout, "call checknc( nf90_get_att(ncid, %s_id, \"%s\", %s_%s) \
-)\n",
-                        vi->name, ai->name, vi->name, ai->name);
-            }
-            fputs("\n", fout);
-        }
-        fputs("\n", fout);
+        generate_f90_att(fout, sds);
     }
 }
