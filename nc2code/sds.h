@@ -57,6 +57,9 @@ typedef struct {
     int ncid; /* private */
 } SDSInfo;
 
+SDSAttInfo *sort_attributes(SDSAttInfo *atts);
+SDSVarInfo *sort_vars(SDSVarInfo *vars);
+
 SDSInfo *open_nc_sds(const char *path);
 int close_nc_sds(SDSInfo *sds);
 
