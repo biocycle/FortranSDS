@@ -157,7 +157,8 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 
     fputs("use netcdf\n\n", fout);
 
-    fputs("integer :: ncid", fout);
+    fputs("integer :: ncid, i", fout);
+    fprintf("integer, dimension(%u) :: start, count\n", list_count(sds->dims));
 
     /* dimension id vars */
     w = MAX_WIDTH;
@@ -168,6 +169,19 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
             w = strlen(di->name) + 11 + 8;
         }
         fprintf(fout, "%s_dimid", di->name);
+        if (di->next && w + strlen(di->next->name) + 8 < MAX_WIDTH)
+            fputs(", ", fout);
+    }
+
+    /* dimension size vars */
+    w = MAX_WIDTH;
+    for (di = sds->dims; di != NULL; di = di->next) {
+        w += strlen(di->name) + 7;
+        if (w >= MAX_WIDTH) {
+            fputs("\ninteger :: ", fout);
+            w = strlen(di->name) + 11 + 7;
+        }
+        fprintf(fout, "%s_size", di->name);
         if (di->next && w + strlen(di->next->name) + 8 < MAX_WIDTH)
             fputs(", ", fout);
     }
@@ -212,6 +226,13 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     }
     fputs("\n", fout);
 
+    fputs("! read dimension sizes\n", fout);
+    for (di = sds->dims; di != NULL; di = di->next) {
+        fprintf(fout, "call checknc( nf90_inquire_dimension(ncid, %s_dimid, len = %s_size) )\n",
+                di->name, di->name);
+    }
+    fputs("\n", fout);
+
     fputs("! get variable IDs\n", fout);
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
         fprintf(fout, "call checknc( nf90_inq_varid(ncid, \"%s\", %s_id) )\n",
@@ -226,7 +247,30 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     }
     fputs("\n", fout);
 
-    /* XXX read last dim of var data in a loop */
+    fputs("! read var data in a loop\n", fout);
+    for (vi = sds->vars; vi != NULL; vi = vi->next) {
+        int i;
+
+        fprintf(fout, "start(%s%u) = 1\n", (vi->ndims > 1) ? "1:" : "",
+                vi->ndims);
+        fprintf(fout, "count(%s%u) = (/", (vi->ndims > 1) ? "1:" : "",
+                vi->ndims);
+        for (i = vi->ndims - 1; i > 0; i--) {
+            fprintf(fout, "%s_size, ", vi->dims[i]->name);
+        }
+        fputs("1/)\n", fout);
+
+        fprintf(fout, "do i = 1, %s_size\n", (unsigned)vi->dims[0]->name);
+        fprintf(fout, "    start(%u) = i\n", (unsigned)vi->ndims);
+        fprintf(fout, "    call checknc( nf90_get_var(ncid, %s_id, %s(",
+                vi->name, vi->name);
+        for (i = vi->ndims - 1; i > 0; i--)
+            fputs(":,", fout);
+        fputs("i), start, count) )\n", fout);
+        fputs("end do\n\n", fout);
+    }
+    fputs("\n", fout);
+
 
     if (generate_att) {
         fputs("\n", fout);
