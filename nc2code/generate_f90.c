@@ -223,25 +223,37 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 {
     SDSDimInfo *di;
     SDSVarInfo *vi;
+    int w;
 
     fputs("use netcdf\n\n", fout);
 
-    fputs("integer :: ncid\n", fout);
+    fputs("integer :: ncid", fout);
 
     /* dimension id vars */
-    fputs("integer :: ", fout);
+    w = MAX_WIDTH;
     for (di = sds->dims; di != NULL; di = di->next) {
+        w += strlen(di->name) + 8;
+        if (w >= MAX_WIDTH) {
+            fputs("\ninteger :: ", fout);
+            w = strlen(di->name) + 11 + 8;
+        }
         fprintf(fout, "%s_dimid", di->name);
-        if (di->next) fputs(", ", fout);
+        if (di->next && w + strlen(di->next->name) + 8 < MAX_WIDTH)
+            fputs(", ", fout);
     }
-    fputs("\n", fout);
 
     /* variable id vars */
     if (sds->vars) {
-        fputs("integer :: ", fout);
+        w = MAX_WIDTH;
         for (vi = sds->vars; vi != NULL; vi = vi->next) {
+            w += strlen(vi->name) + 5;
+            if (w >= MAX_WIDTH) {
+                fputs("\ninteger :: ", fout);
+                w = strlen(vi->name) + 11 + 5;
+            }
             fprintf(fout, "%s_id", vi->name);
-            if (vi->next) fputs(", ", fout);
+            if (vi->next && w + strlen(vi->next->name) + 5 < MAX_WIDTH)
+                fputs(", ", fout);
         }
         fputs("\n", fout);
     }
