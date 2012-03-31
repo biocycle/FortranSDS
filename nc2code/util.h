@@ -28,6 +28,7 @@ typedef struct List {
     char *key;
 } List;
 
+size_t list_count(List *l);
 List *list_reverse(List *l);
 List *list_find(List *l, char *key);
 

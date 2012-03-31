@@ -64,6 +64,16 @@ static List *list_r(List *prev, List *l)
     return next ? list_r(l, next) : l;
 }
 
+size_t list_count(List *l)
+{
+    size_t n = 0;
+    while (l) {
+        n++;
+        l = l->next;
+    }
+    return n;
+}
+
 List *list_reverse(List *l)
 {
     if (!l) return NULL;
