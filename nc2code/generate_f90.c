@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAX_WIDTH (80)
+#define MAX_WIDTH (80 - 4)
 
 static const char CHECK_FUNCTION[] =
-"subroutine checknc(status)\n"
-"    integer, intent(in) :: status\n"
+"    subroutine checknc(status)\n"
+"        integer, intent(in) :: status\n"
 "\n"
-"    if (status /= NF90_NOERR) then\n"
-"        print *, nf90_strerror(status)\n"
-"        stop\n"
-"    end if\n"
-"end subroutine checknc\n"
+"        if (status /= NF90_NOERR) then\n"
+"            print *, nf90_strerror(status)\n"
+"            stop\n"
+"        end if\n"
+"    end subroutine checknc\n"
 ;
 
 static int same_var_dims(SDSVarInfo *a, SDSVarInfo *b)
@@ -58,7 +58,7 @@ static void print_var_decl(FILE *fout, SDSVarInfo *last, SDSVarInfo *vi)
         fprintf(fout, ", %s", vi->name);
     } else {
         if (last) fputs("\n", fout);
-        fprintf(fout, "%s, dimension(", type_str(vi->type));
+        fprintf(fout, "    %s, dimension(", type_str(vi->type));
         for (i = vi->ndims - 1; i >= 0; i--) {
             fprintf(fout, "%u", (unsigned)vi->dims[i]->size);
             if (i > 0) fputs(",", fout);
@@ -74,7 +74,7 @@ static void print_att_decl(FILE *fout, const char *varname,
         fputs(", ", fout);
     } else {
         if (last) fputs("\n", fout);
-        fputs(type_str(ai->type), fout);
+        fprintf(fout, "    %s", type_str(ai->type));
         if (ai->count < 2) {
             fputs(" :: ", fout);
         } else {
@@ -115,7 +115,7 @@ static void generate_f90_var_att(FILE *fout, const char *varname,
         sprintf(var_id, "%s_id", varname);
     }
 
-    fprintf(fout, "! %s attributes\n", varname);
+    fprintf(fout, "    ! %s attributes\n", varname);
 
     /* att variables */
     last = NULL;
@@ -125,7 +125,7 @@ static void generate_f90_var_att(FILE *fout, const char *varname,
                 fprintf(fout, ", %s_%s", varname, ai->name);
             } else {
                 if (last) fputs("\n", fout);
-                fprintf(fout, "character(%u) :: %s_%s",
+                fprintf(fout, "    character(%u) :: %s_%s",
                         (unsigned)ai->count, varname, ai->name);
             }
             last = ai;
@@ -141,7 +141,7 @@ static void generate_f90_var_att(FILE *fout, const char *varname,
 
     /* read attributes */
     for (ai = atts; ai != NULL; ai = ai->next) {
-        fprintf(fout, "call checknc( nf90_get_att(ncid, %s, \"%s\", %s_%s) )\n",
+        fprintf(fout, "    call checknc( nf90_get_att(ncid, %s, \"%s\", %s_%s) )\n",
                 var_id, ai->name, varname, ai->name);
     }
     fputs("\n", fout);
@@ -155,17 +155,20 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     SDSVarInfo *vi;
     int w;
 
-    fputs("use netcdf\n\n", fout);
+    fputs("program read_netcdf\n", fout);
+    fputs("    use netcdf\n", fout);
+    fputs("    implicit none\n\n", fout);   
 
-    fputs("integer :: ncid, i", fout);
-    fprintf("integer, dimension(%u) :: start, count\n", list_count(sds->dims));
+    fputs("    character(512) :: filename\n", fout);
+    fputs("    integer :: ncid, i", fout);
+    fprintf("    integer, dimension(%u) :: start, count\n", list_count(sds->dims));
 
     /* dimension id vars */
     w = MAX_WIDTH;
     for (di = sds->dims; di != NULL; di = di->next) {
         w += strlen(di->name) + 8;
         if (w >= MAX_WIDTH) {
-            fputs("\ninteger :: ", fout);
+            fputs("\n    integer :: ", fout);
             w = strlen(di->name) + 11 + 8;
         }
         fprintf(fout, "%s_dimid", di->name);
@@ -178,7 +181,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     for (di = sds->dims; di != NULL; di = di->next) {
         w += strlen(di->name) + 7;
         if (w >= MAX_WIDTH) {
-            fputs("\ninteger :: ", fout);
+            fputs("\n    integer :: ", fout);
             w = strlen(di->name) + 11 + 7;
         }
         fprintf(fout, "%s_size", di->name);
@@ -196,7 +199,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
         for (vi = sds->vars; vi != NULL; vi = vi->next) {
             w += strlen(vi->name) + 5;
             if (w >= MAX_WIDTH) {
-                fputs("\ninteger :: ", fout);
+                fputs("\n    integer :: ", fout);
                 w = strlen(vi->name) + 11 + 5;
             }
             fprintf(fout, "%s_id", vi->name);
@@ -215,68 +218,64 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     }
     fputs("\n", fout);
 
-    fputs("! open file\n", fout);
-    fprintf(fout, "call checknc( nf90_open(\"%s\", NF90_NOWRITE, ncid) )\n", sds->path);
+    fputs("    ! open file\n", fout);
+    fprintf(fout, "    filename = \"%s\"\n", sds->path);
+    fprintf(fout, "    call checknc( nf90_open(filename, NF90_NOWRITE, ncid) )\n");
     fputs("\n", fout);
 
-    fputs("! read dimensions\n", fout);
+    fputs("    ! read dimensions\n", fout);
     for (di = sds->dims; di != NULL; di = di->next) {
-        fprintf(fout, "call checknc( nf90_inq_dimid(ncid, \"%s\", %s_dimid) )\n",
+        fprintf(fout, "    call checknc( nf90_inq_dimid(ncid, \"%s\", %s_dimid) )\n",
                 di->name, di->name);
     }
     fputs("\n", fout);
 
-    fputs("! read dimension sizes\n", fout);
+    fputs("    ! read dimension sizes\n", fout);
     for (di = sds->dims; di != NULL; di = di->next) {
-        fprintf(fout, "call checknc( nf90_inquire_dimension(ncid, %s_dimid, len = %s_size) )\n",
+        fprintf(fout, "    call checknc( nf90_inquire_dimension(ncid, %s_dimid, len = %s_size) )\n",
                 di->name, di->name);
     }
     fputs("\n", fout);
 
-    fputs("! get variable IDs\n", fout);
+    fputs("    ! get variable IDs\n", fout);
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
-        fprintf(fout, "call checknc( nf90_inq_varid(ncid, \"%s\", %s_id) )\n",
+        fprintf(fout, "    call checknc( nf90_inq_varid(ncid, \"%s\", %s_id) )\n",
                 vi->name, vi->name);
     }
     fputs("\n", fout);
 
-    fputs("! read var data\n", fout);
+    fputs("    ! read var data\n", fout);
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
-        fprintf(fout, "call checknc( nf90_get_var(ncid, %s_id, %s) )\n",
+        fprintf(fout, "    call checknc( nf90_get_var(ncid, %s_id, %s) )\n",
                 vi->name, vi->name);
     }
     fputs("\n", fout);
 
-    fputs("! read var data in a loop\n", fout);
+    fputs("    ! read var data in a loop\n", fout);
     for (vi = sds->vars; vi != NULL; vi = vi->next) {
         int i;
 
-        fprintf(fout, "start(%s%u) = 1\n", (vi->ndims > 1) ? "1:" : "",
+        fprintf(fout, "    start(%s%u) = 1\n", (vi->ndims > 1) ? "1:" : "",
                 vi->ndims);
-        fprintf(fout, "count(%s%u) = (/", (vi->ndims > 1) ? "1:" : "",
+        fprintf(fout, "    count(%s%u) = (/", (vi->ndims > 1) ? "1:" : "",
                 vi->ndims);
         for (i = vi->ndims - 1; i > 0; i--) {
             fprintf(fout, "%s_size, ", vi->dims[i]->name);
         }
         fputs("1/)\n", fout);
 
-        fprintf(fout, "do i = 1, %s_size\n", (unsigned)vi->dims[0]->name);
-        fprintf(fout, "    start(%u) = i\n", (unsigned)vi->ndims);
-        fprintf(fout, "    call checknc( nf90_get_var(ncid, %s_id, %s(",
+        fprintf(fout, "    do i = 1, %s_size\n", (unsigned)vi->dims[0]->name);
+        fprintf(fout, "        start(%u) = i\n", (unsigned)vi->ndims);
+        fprintf(fout, "        call checknc( nf90_get_var(ncid, %s_id, %s(",
                 vi->name, vi->name);
         for (i = vi->ndims - 1; i > 0; i--)
             fputs(":,", fout);
         fputs("i), start, count) )\n", fout);
-        fputs("end do\n\n", fout);
+        fputs("    end do\n\n", fout);
     }
-    fputs("\n", fout);
-
 
     if (generate_att) {
-        fputs("\n", fout);
-
         if (sds->gatts) {
-            fputs("\n", fout);
             sds->gatts = sort_attributes(sds->gatts);
             generate_f90_var_att(fout, NULL, sds->gatts);
         }
@@ -289,9 +288,10 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
         }
     }
 
-    fputs("! close the file\n", fout);
-    fputs("call checknc( nf90_close(ncid) )\n", fout);
-    fputs("\n", fout);
+    fputs("    ! close the file\n", fout);
+    fputs("    call checknc( nf90_close(ncid) )\n", fout);
 
+    fputs("\ncontains\n\n", fout);
     fputs(CHECK_FUNCTION, fout);
+    fputs("\nend program read_netcdf\n", fout);
 }
