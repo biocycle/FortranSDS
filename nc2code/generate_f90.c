@@ -50,14 +50,14 @@ static const char *type_str(SDSType type)
     return NULL;
 }
 
-static void print_var_decl(FILE *fout, SDSVarInfo *last, SDSVarInfo *vi)
+static void print_var_decl(FILE *fout, SDSVarInfo *prev, SDSVarInfo *vi)
 {
     int i;
 
-    if (last && last->type == vi->type && same_var_dims(last, vi)) {
+    if (prev && prev->type == vi->type && same_var_dims(prev, vi)) {
         fprintf(fout, ", %s", vi->name);
     } else {
-        if (last) fputs("\n", fout);
+        if (prev) fputs("\n", fout);
         fprintf(fout, "    %s, dimension(", type_str(vi->type));
         for (i = vi->ndims - 1; i >= 0; i--) {
             fprintf(fout, "%u", (unsigned)vi->dims[i]->size);
@@ -68,12 +68,12 @@ static void print_var_decl(FILE *fout, SDSVarInfo *last, SDSVarInfo *vi)
 }
 
 static void print_att_decl(FILE *fout, const char *varname,
-                           SDSAttInfo *last, SDSAttInfo *ai)
+                           SDSAttInfo *prev, SDSAttInfo *ai)
 {
-    if (last && last->count == ai->count) {
+    if (prev && prev->count == ai->count) {
         fputs(", ", fout);
     } else {
-        if (last) fputs("\n", fout);
+        if (prev) fputs("\n", fout);
         fprintf(fout, "    %s", type_str(ai->type));
         if (ai->count < 2) {
             fputs(" :: ", fout);
@@ -87,23 +87,23 @@ static void print_att_decl(FILE *fout, const char *varname,
 static void print_att_type_decl(FILE *fout, const char *varname,
                                 SDSAttInfo *atts, SDSType type)
 {
-    SDSAttInfo *last = NULL, *ai;
+    SDSAttInfo *prev = NULL, *ai;
     for (ai = atts; ai != NULL; ai = ai->next) {
         if (type == ai->type || (type == SDS_NO_TYPE &&
                                  ai->type == SDS_BYTE ||
                                  ai->type == SDS_SHORT ||
                                  ai->type == SDS_INT)) {
-            print_att_decl(fout, varname, last, ai);
-            last = ai;
+            print_att_decl(fout, varname, prev, ai);
+            prev = ai;
         }
     }
-    if (last) fputs("\n", fout);
+    if (prev) fputs("\n", fout);
 }
 
 static void generate_f90_var_att(FILE *fout, const char *varname,
                                  SDSAttInfo *atts)
 {
-    SDSAttInfo *ai, *last;
+    SDSAttInfo *ai, *prev;
     char *var_id;
 
     if (!varname) {
@@ -118,20 +118,20 @@ static void generate_f90_var_att(FILE *fout, const char *varname,
     fprintf(fout, "    ! %s attributes\n", varname);
 
     /* att variables */
-    last = NULL;
+    prev = NULL;
     for (ai = atts; ai != NULL; ai = ai->next) {
         if (ai->type == SDS_STRING) {
-            if (last && last->count == ai->count) {
+            if (prev && prev->count == ai->count) {
                 fprintf(fout, ", %s_%s", varname, ai->name);
             } else {
-                if (last) fputs("\n", fout);
+                if (prev) fputs("\n", fout);
                 fprintf(fout, "    character(%u) :: %s_%s",
                         (unsigned)ai->count, varname, ai->name);
             }
-            last = ai;
+            prev = ai;
         }
     }
-    if (last) fputs("\n", fout);
+    if (prev) fputs("\n", fout);
 
     print_att_type_decl(fout, varname, atts, SDS_NO_TYPE); /* integrals */
     print_att_type_decl(fout, varname, atts, SDS_FLOAT);
@@ -190,7 +190,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     }
 
     if (sds->vars) {
-        SDSVarInfo *last;
+        SDSVarInfo *prev;
 
         sds->vars = sort_vars(sds->vars);
 
@@ -209,10 +209,10 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
         fputs("\n", fout);
 
         /* variable data vars */
-        last = NULL;
+        prev = NULL;
         for (vi = sds->vars; vi != NULL; vi = vi->next) {
-            print_var_decl(fout, last, vi);
-            last = vi;
+            print_var_decl(fout, prev, vi);
+            prev = vi;
         }
         fputs("\n", fout);
     }
