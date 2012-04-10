@@ -90,9 +90,9 @@ static void print_att_type_decl(FILE *fout, const char *varname,
     SDSAttInfo *prev = NULL, *ai;
     for (ai = atts; ai != NULL; ai = ai->next) {
         if (type == ai->type || (type == SDS_NO_TYPE &&
-                                 ai->type == SDS_BYTE ||
-                                 ai->type == SDS_SHORT ||
-                                 ai->type == SDS_INT)) {
+                                 (ai->type == SDS_BYTE ||
+                                  ai->type == SDS_SHORT ||
+                                  ai->type == SDS_INT))) {
             print_att_decl(fout, varname, prev, ai);
             prev = ai;
         }
@@ -161,7 +161,8 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 
     fputs("    character(512) :: filename\n", fout);
     fputs("    integer :: ncid, i", fout);
-    fprintf("    integer, dimension(%u) :: start, count\n", list_count(sds->dims));
+    fprintf(fout, "    integer, dimension(%u) :: start, count\n",
+            (unsigned)list_count((List *)sds->dims));
 
     /* dimension id vars */
     w = MAX_WIDTH;
@@ -264,7 +265,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
         }
         fputs("1/)\n", fout);
 
-        fprintf(fout, "    do i = 1, %s_size\n", (unsigned)vi->dims[0]->name);
+        fprintf(fout, "    do i = 1, %s_size\n", vi->dims[0]->name);
         fprintf(fout, "        start(%u) = i\n", (unsigned)vi->ndims);
         fprintf(fout, "        call checknc( nf90_get_var(ncid, %s_id, %s(",
                 vi->name, vi->name);
