@@ -29,8 +29,13 @@ FFLAGS += -I. -I$(NC_ROOT)/include
 LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz
 C_LDFLAGS = $(LDFLAGS) -lm
 
-NC2CODE_OBJS = nc2code/nc2code.o nc2code/generate_f90.o nc2code/sds_nc.o \
-	nc2code/sds_sort.o nc2code/util.o
+NC2CODE_OBJS = nc2code/nc2code.o \
+	nc2code/sds_sort.o \
+	nc2code/util.o \
+	nc2code/sds_nc.o \
+	nc2code/f90.o \
+	nc2code/generate_f90.o \
+	nc2code/generate_simple_f90.o 
 
 .SUFFIXES:
 .SUFFIXES: .c .f90 .F90 .o
