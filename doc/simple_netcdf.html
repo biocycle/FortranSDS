@@ -723,6 +723,7 @@ Usually automatically added when you #include &lt;simple_netcdf.inc>.</dd>
         character(*), intent(in) :: varname
         integer, intent(in) :: vartype
         integer, intent(in), dimension(:) :: dimids
+        integer, intent(in), optional :: deflate_lev
         character(*), intent(in), optional :: src_file
         integer, intent(in), optional :: src_line
         type(SNCVar) :: snc_def_var
