@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern const char *f90_type_str(SDSType type);
+
 #define MAX_WIDTH (80 - 4)
 
 static const char CHECK_FUNCTION[] =
@@ -31,25 +33,6 @@ static int same_var_dims(SDSVarInfo *a, SDSVarInfo *b)
     return 1;
 }
 
-static const char *type_str(SDSType type)
-{
-    switch (type) {
-    case SDS_BYTE:
-    case SDS_SHORT:
-    case SDS_INT:
-        return "integer";
-    case SDS_FLOAT:
-        return "real*4";
-    case SDS_DOUBLE:
-        return "real*8";
-    case SDS_STRING:
-        return "character(%u)";
-    default:
-        abort();
-    }
-    return NULL;
-}
-
 static void print_var_decl(FILE *fout, SDSVarInfo *prev, SDSVarInfo *vi)
 {
     int i;
@@ -58,7 +41,7 @@ static void print_var_decl(FILE *fout, SDSVarInfo *prev, SDSVarInfo *vi)
         fprintf(fout, ", %s", vi->name);
     } else {
         if (prev) fputs("\n", fout);
-        fprintf(fout, "    %s, dimension(", type_str(vi->type));
+        fprintf(fout, "    %s, dimension(", f90_type_str(vi->type));
         for (i = vi->ndims - 1; i >= 0; i--) {
             fprintf(fout, "%u", (unsigned)vi->dims[i]->size);
             if (i > 0) fputs(",", fout);
@@ -74,7 +57,7 @@ static void print_att_decl(FILE *fout, const char *varname,
         fputs(", ", fout);
     } else {
         if (prev) fputs("\n", fout);
-        fprintf(fout, "    %s", type_str(ai->type));
+        fprintf(fout, "    %s", f90_type_str(ai->type));
         if (ai->count < 2) {
             fputs(" :: ", fout);
         } else {
