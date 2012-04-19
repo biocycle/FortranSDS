@@ -16,6 +16,7 @@ enum Language {
     LANG_NONE,
     LANG_C,
     LANG_F90,
+    LANG_F90_SIMPLE,
     LANG_F77
 };
 
@@ -27,6 +28,7 @@ static const char OPTIONS[] =
 "  -a       generate code to read attributes; default = no\n"
 "  -c       generate C code\n"
 "  -f       generate Fortran 90 code; default\n"
+"  -s       generate Fortran 90 code for the SimpleSDS module\n"
 "  -F       generate Fortran 77 code\n"
 "  -h       print this help message\n"
 "  -o FILE  write the code to FILE instead of stdout\n"
@@ -89,6 +91,9 @@ static void parse_args(int argc, char **argv)
                 case 'q':
                     be_verbose = 0;
                     break;
+                case 's':
+                    gen_lang = LANG_F90_SIMPLE;
+                    break;
                 default:
                     arg_parse_error(argv[0], "Invalid option '%c'", argv[i][j]);
                     break;
@@ -146,6 +151,9 @@ int main(int argc, char **argv)
         break;
     case LANG_F90:
         generate_f90_code(fout, nc_info, generate_att);
+        break;
+    case LANG_F90_SIMPLE:
+        generate_simple_f90_code(fout, nc_info, generate_att);
         break;
     case LANG_F77:
         puts("Fortran 77 code generation not implemented yet");
