@@ -12,7 +12,7 @@ ifeq ($(COMPILER),pgi)
 	HDF_ROOT = /usr/local/hdf5-pgi
 else
 	CC = gcc
-	CFLAGS = -g -Wall -ansi -pedantic
+	CFLAGS = -g -Wall -std=c99 -pedantic
 	F90 = gfortran
 	FFLAGS = -g -Wall
 
@@ -24,15 +24,18 @@ ifeq ($(NC4),true)
 	FFLAGS += -DHAVE_NETCDF4
 endif
 
-CFLAGS += -I. -I$(NC_ROOT)/include
+CFLAGS += -I. -I$(NC_ROOT)/include -I./c99/
 FFLAGS += -I. -I$(NC_ROOT)/include
 LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz
 C_LDFLAGS = $(LDFLAGS) -lm
 
-NC2CODE_OBJS = nc2code/nc2code.o \
-	nc2code/sds_sort.o \
-	nc2code/util.o \
-	nc2code/sds_nc.o \
+C99_OBJS = \
+	c99/sds_sort.o \
+	c99/util.o \
+	c99/sds_nc.o
+
+NC2CODE_OBJS = \
+	nc2code/nc2code.o \
 	nc2code/f90.o \
 	nc2code/generate_f90.o \
 	nc2code/generate_simple_f90.o 
@@ -58,7 +61,7 @@ all: test nc2code/nc2code doc
 simple_netcdf.F90: simple_netcdf.F90.erb
 	tools/ferb $< >$@
 
-nc2code/nc2code: $(NC2CODE_OBJS)
+nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
 
 doc: doc/simple_netcdf.html

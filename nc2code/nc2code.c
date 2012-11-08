@@ -11,6 +11,7 @@
 #include <string.h>
 
 extern void generate_f90_code(FILE *fout, SDSInfo *info, int generate_att);
+extern void generate_simple_f90_code(FILE *fout, SDSInfo *info, int gen_att);
 
 enum Language {
     LANG_NONE,
