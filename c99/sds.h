@@ -54,11 +54,24 @@ typedef struct {
     SDSDimInfo *dims;
     SDSVarInfo *vars;
     SDSDimInfo *unlimdim;
-    int ncid; /* private */
+    // private
+    int ncid;
+    struct SDS_Funcs *funcs;
 } SDSInfo;
+
+struct SDS_Funcs {
+    void *(*var_read)(SDSInfo *, SDSVarInfo *);
+};
 
 SDSAttInfo *sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sort_vars(SDSVarInfo *vars);
+
+size_t sds_type_size(SDSType t);
+
+SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
+SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
+
+void *sds_read_var(SDSInfo *sds, SDSVarInfo *var);
 
 SDSInfo *open_nc_sds(const char *path);
 int close_nc_sds(SDSInfo *sds);

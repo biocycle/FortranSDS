@@ -1,5 +1,6 @@
 *.o
 *.mod
+*.a
 test/lowlevel_nc
 test/snc_no_file_line
 test/snc_with_file_line

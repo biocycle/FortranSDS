@@ -34,6 +34,61 @@ static SDSType nc_to_sds_type(nc_type type)
     abort();
 }
 
+static size_t var_size(SDSVarInfo *var)
+{
+    size_t size = sds_type_size(var->type);
+    for (int i = 0; i < var->ndims; i++) {
+        size *= var->dims[i]->size;
+    }
+    return size;
+}
+
+static void *var_read(SDSInfo *sds, SDSVarInfo *var)
+{
+    int status;
+    void *data = xmalloc(var_size(var));
+#if HAVE_NETCDF4
+    status = nc_get_var(sds->ncid, var->id, data);
+    CHECK_NC_ERROR(sds->path, status);
+#else
+    switch (var->type) {
+    case SDS_BYTE:
+        status = nc_get_var_uchar(sds->ncid, var->id, (unsigned char*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_SHORT:
+        status = nc_get_var_short(sds->ncid, var->id, (short*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_INT:
+        status = nc_get_var_int(sds->ncid, var->id, (int*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_FLOAT:
+        status = nc_get_var_float(sds->ncid, var->id, (float*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_DOUBLE:
+        status = nc_get_var_double(sds->ncid, var->id, (double*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_STRING:
+        status = nc_get_var_text(sds->ncid, var->id, (char*)data);
+        CHECK_NC_ERROR(sds->path, status);
+        break;
+    case SDS_NO_TYPE:
+    default:
+        abort();
+        break;
+    }
+#endif
+    return data;
+}
+
+static struct SDS_Funcs nc_funcs = {
+    var_read
+};
+
 static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
                                    int natts)
 {
@@ -51,8 +106,21 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         status = nc_inq_att(ncid, id, buf, &type, &count);
         CHECK_NC_ERROR(path, status);
 
+#ifdef HAVE_NETCDF4
         status = nc_inq_type(ncid, type, NULL, &bytes);
         CHECK_NC_ERROR(path, status);
+#else
+        switch (type) {
+        case NC_NAT:    bytes = 0; break;
+        case NC_BYTE:   bytes = 1; break;
+        case NC_CHAR:   bytes = 1; break;
+        case NC_SHORT:  bytes = 2; break;
+        case NC_INT:    bytes = 4; break;
+        case NC_FLOAT:  bytes = 4; break;
+        case NC_DOUBLE: bytes = 8; break;
+        default: abort(); break;
+        }
+#endif
         data = xmalloc(count * bytes);
         status = nc_get_att(ncid, id, buf, data);
         CHECK_NC_ERROR(path, status);
@@ -115,8 +183,14 @@ SDSInfo *open_nc_sds(const char *path)
     sds->gatts = read_attributes(path, ncid, NC_GLOBAL, ngatts);
 
     /* read dimension info */
+#if HAVE_NETCDF4
     status = nc_inq_dimids(ncid, &ndims, ids, 1);
     CHECK_NC_ERROR(path, status);
+#else
+    for (i = 0; i < ndims; i++) {
+        ids[i] = i;
+    }
+#endif
     for (i = 0; i < ndims; i++) {
         SDSDimInfo *dim;
         size_t size;
@@ -137,8 +211,14 @@ SDSInfo *open_nc_sds(const char *path)
     sds->dims = (SDSDimInfo *)list_reverse((List *)sds->dims);
 
     /* read variable info */
+#if HAVE_NETCDF4
     status = nc_inq_varids(ncid, &nvars, ids);
     CHECK_NC_ERROR(path, status);
+#else
+    for (i = 0; i < nvars; i++) {
+        ids[i] = i;
+    }
+#endif
     for (i = 0; i < nvars; i++) {
         SDSVarInfo *vi;
         nc_type type;
@@ -160,6 +240,8 @@ SDSInfo *open_nc_sds(const char *path)
         sds->vars = vi;
     }
     sds->vars = (SDSVarInfo *)list_reverse((List *)sds->vars);
+
+    sds->funcs = &nc_funcs;
 
     return sds;
 }

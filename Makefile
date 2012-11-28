@@ -30,6 +30,7 @@ LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5
 C_LDFLAGS = $(LDFLAGS) -lm
 
 C99_OBJS = \
+	c99/sds.o \
 	c99/sds_sort.o \
 	c99/util.o \
 	c99/sds_nc.o
@@ -56,10 +57,13 @@ NC2CODE_OBJS = \
 .f90.o:
 	$(F90) $(FFLAGS) -c $< -o $@
 
-all: test nc2code/nc2code doc
+all: test c99/libsimplesds.a nc2code/nc2code doc
 
 simple_netcdf.F90: simple_netcdf.F90.erb
 	tools/ferb $< >$@
+
+c99/libsimplesds.a: $(C99_OBJS)
+	ar -ru $@ $^
 
 nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
@@ -95,5 +99,6 @@ test/open_var: simple_netcdf.o test/open_var.o
 
 clean:
 	rm -f *~ *.o *.mod simple.nc cf.nc
+	rm -f c99/*.o c99/lib*.a
 	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc test/timestep_nc
 	rm -f nc2code/*.o nc2code/*~
