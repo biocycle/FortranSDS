@@ -176,7 +176,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     if (sds->vars) {
         SDSVarInfo *prev;
 
-        sds->vars = sort_vars(sds->vars);
+        sds->vars = sds_sort_vars(sds->vars);
 
         /* variable id vars */
         w = MAX_WIDTH;
@@ -260,13 +260,13 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
 
     if (generate_att) {
         if (sds->gatts) {
-            sds->gatts = sort_attributes(sds->gatts);
+            sds->gatts = sds_sort_attributes(sds->gatts);
             generate_f90_var_att(fout, NULL, sds->gatts);
         }
 
         for (vi = sds->vars; vi != NULL; vi = vi->next) {
             if (vi->atts) {
-                vi->atts = sort_attributes(vi->atts);
+                vi->atts = sds_sort_attributes(vi->atts);
                 generate_f90_var_att(fout, vi->name, vi->atts);
             }
         }

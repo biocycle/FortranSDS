@@ -63,8 +63,8 @@ struct SDS_Funcs {
     void *(*var_read)(SDSInfo *, SDSVarInfo *);
 };
 
-SDSAttInfo *sort_attributes(SDSAttInfo *atts);
-SDSVarInfo *sort_vars(SDSVarInfo *vars);
+SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
+SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);
 
 size_t sds_type_size(SDSType t);
 

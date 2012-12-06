@@ -41,7 +41,7 @@ static int attinfo_cmp(SDSAttInfo *a, SDSAttInfo *b)
     return a->count - b->count;
 }
 
-SDSAttInfo *sort_attributes(SDSAttInfo *atts)
+SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts)
 {
     SDSAttInfo *prev, *smallest, *ai; /* unsorted, being selected from */
     SDSAttInfo *sorted = NULL; /* sorted list */
@@ -100,7 +100,7 @@ static int varinfo_cmp(SDSVarInfo *a, SDSVarInfo *b)
  * then by number of dimensions
  * then by size of dimensions
  */
-SDSVarInfo *sort_vars(SDSVarInfo *vars)
+SDSVarInfo *sds_sort_vars(SDSVarInfo *vars)
 {
     SDSVarInfo *prev, *smallest, *ai; /* unsorted, being selected from */
     SDSVarInfo *sorted = NULL; /* sorted list */
