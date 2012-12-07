@@ -6,9 +6,12 @@
 
 typedef enum {
     SDS_NO_TYPE,
-    SDS_BYTE,
-    SDS_SHORT,
-    SDS_INT,
+    SDS_I8,
+    SDS_U8,
+    SDS_I16,
+    SDS_U16,
+    SDS_I32,
+    SDS_U32,
     SDS_FLOAT,
     SDS_DOUBLE,
     SDS_STRING
@@ -20,14 +23,18 @@ typedef struct SDSAttInfo {
     SDSType type;
     size_t count; /* number of elements */
     size_t bytes; /* # bytes per element */
+    // XXX fill the below out correctly in NetCDF
     union {
-        int8_t  *b;
-        int16_t *s;
-        int32_t *i;
-        float   *f;
-        double  *d;
-        char    *str;
-        void    *v;
+        int8_t   *b;
+        uint8_t  *ub;
+        int16_t  *s;
+        uint16_t *us;
+        int32_t  *i;
+        uint32_t *ui;
+        float    *f;
+        double   *d;
+        char     *str;
+        void     *v;
     } data;
 } SDSAttInfo;
 
@@ -35,6 +42,8 @@ typedef struct SDSDimInfo {
     struct SDSDimInfo *next;
     char *name;
     size_t size;
+    // XXX set the below properly for NetCDF
+    int isunlim; // unlimited dimension?
     int id; /* private */
 } SDSDimInfo;
 
@@ -42,6 +51,8 @@ typedef struct SDSVarInfo {
     struct SDSVarInfo *next;
     char *name;
     SDSType type;
+    // XXX set the below properly for NetCDF vars
+    int iscoord; // coordinate variable?
     int ndims;
     SDSDimInfo **dims;
     SDSAttInfo *atts;
@@ -54,17 +65,21 @@ typedef struct {
     SDSDimInfo *dims;
     SDSVarInfo *vars;
     SDSDimInfo *unlimdim;
+
     // private
-    int ncid;
+    int id;
     struct SDS_Funcs *funcs;
 } SDSInfo;
 
 struct SDS_Funcs {
     void *(*var_read)(SDSInfo *, SDSVarInfo *);
+    void (*close)(SDSInfo *);
 };
 
-SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
-SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);
+SDSInfo *open_nc_sds(const char *path);
+SDSInfo *open_hdf_sds(const char *path);
+
+void sds_close(SDSInfo *sds);
 
 size_t sds_type_size(SDSType t);
 
@@ -73,7 +88,7 @@ SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
 
 void *sds_read_var(SDSInfo *sds, SDSVarInfo *var);
 
-SDSInfo *open_nc_sds(const char *path);
-int close_nc_sds(SDSInfo *sds);
+SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
+SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);
 
 #endif /* SDS_H */

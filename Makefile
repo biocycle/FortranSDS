@@ -9,7 +9,8 @@ ifeq ($(COMPILER),pgi)
 	FFLAGS = -g
 
 	NC_ROOT = /usr/local/netcdf4-pgi
-	HDF_ROOT = /usr/local/hdf5-pgi
+	H5_ROOT = /usr/local/hdf5-pgi
+	H4_ROOT = /usr/local/hdf4-pgi
 else
 	CC = gcc
 	CFLAGS = -g -Wall -std=c99 -pedantic
@@ -17,23 +18,37 @@ else
 	FFLAGS = -g -Wall
 
 	NC_ROOT = /usr/local/netcdf4-gcc
-	HDF_ROOT = /usr/local/hdf5-gcc
-endif
-
-ifeq ($(NC4),true)
-	FFLAGS += -DHAVE_NETCDF4
+	H5_ROOT = /usr/local/hdf5-gcc
+	H4_ROOT = /usr/local/hdf4-gcc
 endif
 
 CFLAGS += -I. -I$(NC_ROOT)/include -I./c99/
 FFLAGS += -I. -I$(NC_ROOT)/include
-LDFLAGS = -L$(HDF_ROOT)/lib -L$(NC_ROOT)/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lz
-C_LDFLAGS = $(LDFLAGS) -lm
+LDFLAGS = -L$(NC_ROOT)/lib
+
+ifeq ($(NC4),true)
+	FFLAGS += -DHAVE_NETCDF4
+	LDFLAGS += -lnetcdff -lnetcdf -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
+else
+	LDFLAGS += -lnetcdf
+endif
+
+ifeq ($(H4),true)
+	CFLAGS += -I$(H4_ROOT)/include
+	LDFLAGS += -L$(H4_ROOT)/lib -ldf -lmfhdf -ljpeg -lz
+endif
+
+C_LDFLAGS = $(LDFLAGS) -Lc99 -lm
+
+# ---
 
 C99_OBJS = \
 	c99/sds.o \
 	c99/sds_sort.o \
 	c99/util.o \
-	c99/sds_nc.o
+	c99/sds.o \
+	c99/sds_nc.o \
+	c99/sds_hdf.o
 
 NC2CODE_OBJS = \
 	nc2code/nc2code.o \
@@ -67,6 +82,9 @@ c99/libsimplesds.a: $(C99_OBJS)
 
 nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
+
+dump_hdf: c99/libsimplesds.a dump_hdf.o
+	$(CC) -o $@ dump_hdf.o -lsimplesds $(C_LDFLAGS)
 
 doc: doc/simple_netcdf.html
 
@@ -102,3 +120,11 @@ clean:
 	rm -f c99/*.o c99/lib*.a
 	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc test/timestep_nc
 	rm -f nc2code/*.o nc2code/*~
+
+
+# deps
+c99/sds.c: c99/sds.h
+c99/sds_hdf.c: c99/sds.h
+c99/sds_nc.c: c99/sds.h
+c99/sds_sort.c: c99/sds.h
+c99/util.c: c99/util.h

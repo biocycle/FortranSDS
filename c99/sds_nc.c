@@ -23,10 +23,10 @@ static SDSType nc_to_sds_type(nc_type type)
 {
     switch (type) {
 	case NC_NAT:    return SDS_NO_TYPE;
-	case NC_BYTE:   return SDS_BYTE;
+	case NC_BYTE:   return SDS_I8;
 	case NC_CHAR:   return SDS_STRING;
-	case NC_SHORT:  return SDS_SHORT;
-	case NC_INT:    return SDS_INT;
+	case NC_SHORT:  return SDS_I16;
+	case NC_INT:    return SDS_I32;
 	case NC_FLOAT:  return SDS_FLOAT;
 	case NC_DOUBLE: return SDS_DOUBLE;
     default: break;
@@ -48,32 +48,32 @@ static void *var_read(SDSInfo *sds, SDSVarInfo *var)
     int status;
     void *data = xmalloc(var_size(var));
 #if HAVE_NETCDF4
-    status = nc_get_var(sds->ncid, var->id, data);
+    status = nc_get_var(sds->id, var->id, data);
     CHECK_NC_ERROR(sds->path, status);
 #else
     switch (var->type) {
-    case SDS_BYTE:
-        status = nc_get_var_uchar(sds->ncid, var->id, (unsigned char*)data);
+    case SDS_I8:
+        status = nc_get_var_uchar(sds->id, var->id, (unsigned char*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
-    case SDS_SHORT:
-        status = nc_get_var_short(sds->ncid, var->id, (short*)data);
+    case SDS_I16:
+        status = nc_get_var_short(sds->id, var->id, (short*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
-    case SDS_INT:
-        status = nc_get_var_int(sds->ncid, var->id, (int*)data);
+    case SDS_I32:
+        status = nc_get_var_int(sds->id, var->id, (int*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_FLOAT:
-        status = nc_get_var_float(sds->ncid, var->id, (float*)data);
+        status = nc_get_var_float(sds->id, var->id, (float*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_DOUBLE:
-        status = nc_get_var_double(sds->ncid, var->id, (double*)data);
+        status = nc_get_var_double(sds->id, var->id, (double*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_STRING:
-        status = nc_get_var_text(sds->ncid, var->id, (char*)data);
+        status = nc_get_var_text(sds->id, var->id, (char*)data);
         CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_NO_TYPE:
@@ -85,20 +85,26 @@ static void *var_read(SDSInfo *sds, SDSVarInfo *var)
     return data;
 }
 
+static void close_nc(SDSInfo *sds)
+{
+    int status = nc_close(sds->id);
+    CHECK_NC_ERROR(sds->path, status);
+}
+
 static struct SDS_Funcs nc_funcs = {
-    var_read
+    var_read,
+    close_nc
 };
 
 static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
                                    int natts)
 {
+    SDSAttInfo *att, *att_list = NULL;
     char buf[NC_MAX_NAME + 1];
     int status, i;
     nc_type type;
     size_t count, bytes;
-    SDSAttInfo *att;
     void *data;
-    SDSAttInfo *att_list = NULL;
 
     for (i = 0; i < natts; i++) {
         status = nc_inq_attname(ncid, id, i, buf);
@@ -156,7 +162,7 @@ static void map_dimids(SDSVarInfo *vi, int *dimids, SDSDimInfo *dims)
     }
 }
 
-/* Opens a NetCDF file and reads all its metadata, return an SDSInfo
+/* Opens a NetCDF file and reads all its metadata, returning an SDSInfo
  * structure containing this metadata.  Returns NULL on error.
  */
 SDSInfo *open_nc_sds(const char *path)
@@ -172,7 +178,7 @@ SDSInfo *open_nc_sds(const char *path)
 
     sds = NEW0(SDSInfo);
     sds->path = xstrdup(path);
-    sds->ncid = ncid;
+    sds->id = ncid;
 
     /* get counts for everything */
     unlimdimid = -1;
@@ -242,59 +248,5 @@ SDSInfo *open_nc_sds(const char *path)
     sds->vars = (SDSVarInfo *)list_reverse((List *)sds->vars);
 
     sds->funcs = &nc_funcs;
-
     return sds;
-}
-
-static void free_atts(SDSAttInfo *att)
-{
-    if (att) {
-        SDSAttInfo *next = att->next;
-        free(att->name);
-        free(att->data.v);
-        free(att);
-        free_atts(next);
-    }
-}
-
-static void free_dims(SDSDimInfo *dim)
-{
-    if (dim) {
-        SDSDimInfo *next = dim->next;
-        free(dim->name);
-        free(dim);
-        free_dims(next);
-    }
-}
-
-static void free_vars(SDSVarInfo *var)
-{
-    if (var) {
-        SDSVarInfo *next = var->next;
-        free(var->name);
-        free_atts(var->atts);
-        free(var->dims);
-        free(var);
-        free_vars(next);
-    }
-}
-
-/* Close the NetCDF file and free all memory used for metadata.
- * Returns 0 on success and -1 on failure.
- */
-int close_nc_sds(SDSInfo *sds)
-{
-    int status;
-
-    free_atts(sds->gatts);
-    free_dims(sds->dims);
-    free_vars(sds->vars);
-
-    status = nc_close(sds->ncid);
-    CHECK_NC_ERROR(sds->path, status);
-
-    free(sds->path);
-    free(sds);
-
-    return 0;
 }

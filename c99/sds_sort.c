@@ -3,9 +3,12 @@
 static int type_order(SDSType type)
 {
     switch (type) {
-    case SDS_BYTE:
-    case SDS_SHORT:
-    case SDS_INT:
+    case SDS_I8:
+    case SDS_U8:
+    case SDS_I16:
+    case SDS_U16:
+    case SDS_I32:
+    case SDS_U32:
         return 3;
     case SDS_FLOAT:
         return 1;
