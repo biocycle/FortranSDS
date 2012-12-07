@@ -69,7 +69,7 @@ static size_t h4_typesize(int32 h4type)
     case DFNT_UINT32:
     case DFNT_FLOAT32: return 4;
     case DFNT_FLOAT64: return 8;
-    default: break;
+    default: abort(); break;
     }
     return 0;
 }

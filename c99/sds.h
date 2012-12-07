@@ -12,6 +12,8 @@ typedef enum {
     SDS_U16,
     SDS_I32,
     SDS_U32,
+    SDS_I64,
+    SDS_U64,
     SDS_FLOAT,
     SDS_DOUBLE,
     SDS_STRING
@@ -23,7 +25,6 @@ typedef struct SDSAttInfo {
     SDSType type;
     size_t count; /* number of elements */
     size_t bytes; /* # bytes per element */
-    // XXX fill the below out correctly in NetCDF
     union {
         int8_t   *b;
         uint8_t  *ub;
@@ -31,6 +32,8 @@ typedef struct SDSAttInfo {
         uint16_t *us;
         int32_t  *i;
         uint32_t *ui;
+        int64_t  *i64;
+        uint64_t *u64;
         float    *f;
         double   *d;
         char     *str;
@@ -42,7 +45,6 @@ typedef struct SDSDimInfo {
     struct SDSDimInfo *next;
     char *name;
     size_t size;
-    // XXX set the below properly for NetCDF
     int isunlim; // unlimited dimension?
     int id; /* private */
 } SDSDimInfo;
@@ -51,7 +53,6 @@ typedef struct SDSVarInfo {
     struct SDSVarInfo *next;
     char *name;
     SDSType type;
-    // XXX set the below properly for NetCDF vars
     int iscoord; // coordinate variable?
     int ndims;
     SDSDimInfo **dims;
@@ -64,6 +65,7 @@ typedef struct {
     SDSAttInfo *gatts;
     SDSDimInfo *dims;
     SDSVarInfo *vars;
+    // note: for HDF files, there can be multiple unlimited dimensions
     SDSDimInfo *unlimdim;
 
     // private

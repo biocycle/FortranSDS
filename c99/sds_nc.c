@@ -29,6 +29,13 @@ static SDSType nc_to_sds_type(nc_type type)
 	case NC_INT:    return SDS_I32;
 	case NC_FLOAT:  return SDS_FLOAT;
 	case NC_DOUBLE: return SDS_DOUBLE;
+#ifdef HAVE_NETCDF4
+    case NC_USHORT: return SDS_U16;
+    case NC_UINT:   return SDS_U32;
+    case NC_INT64:  return SDS_I64;
+    case NC_UINT64: return SDS_U64;
+    case NC_STRING: return SDS_STRING;
+#endif
     default: break;
     }
     abort();
@@ -144,6 +151,19 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
     return (SDSAttInfo *)list_reverse((List *)att_list);
 }
 
+/* Checks the list of dimensions for a match with the given variable name.
+ * That is the definition of a coordinate variable in NetCDF.
+ */
+static int is_coord_var(SDSDimInfo *dim, const char *varname)
+{
+    while (dim) {
+        if (!strcmp(dim->name, varname))
+            return 1;
+        dim = dim->next;
+    }
+    return 0;
+}
+
 /* Map array of the variable's dimension ids to an array of SDSDimInfo pointers.
  */
 static void map_dimids(SDSVarInfo *vi, int *dimids, SDSDimInfo *dims)
@@ -206,6 +226,7 @@ SDSInfo *open_nc_sds(const char *path)
         dim = NEW(SDSDimInfo);
         dim->name = xstrdup(buf);
         dim->size = size;
+        dim->isunlim = (ids[i] == unlimdimid);
         dim->id = ids[i];
 
         dim->next = sds->dims;
@@ -235,6 +256,7 @@ SDSInfo *open_nc_sds(const char *path)
         vi = NEW(SDSVarInfo);
         vi->name = xstrdup(buf);
         vi->type = nc_to_sds_type(type);
+        vi->iscoord = is_coord_var(sds->dims, buf);
         vi->ndims = nvdims;
         vi->id = ids[i];
         vi->dims = NEWA(SDSDimInfo *, ndims);
