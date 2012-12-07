@@ -24,9 +24,6 @@ static void hdf_error(const char *filename, int status,
 #define CHECK_HDF_ERROR(filename, status) \
     if ((status) == FAIL) hdf_error(filename,status,__FILE__,__LINE__)
 
-#define CHECK_HDF_ERRRET(filename, expr) \
-    do { int status = expr; CHECK_HDF_ERROR(filename, status); } while(0)
-
 static void close_hdf(SDSInfo *sds)
 {
     int status = SDend(sds->id);
