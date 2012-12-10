@@ -1,41 +1,68 @@
 # Makefile for Simple SDS
+#
+# Environment Variables:
+#
+# - COMPILER=pgi: select the Portland Group compilers
+# - COMPILER=gcc: select the GNU Compiler Collection (default)
+#
+# - NC4=true: build with NetCDF4 instead of NetCDF3
+# - H4=true: build with HDF version 4 support
+# - H5=true: build with HDF version 5 support
+
+ifeq ($(H5),true)
+	need_h5=true
+endif
+ifeq ($(NC4),true)
+	need_h5=true
+endif
 
 CPP = cpp
 
 ifeq ($(COMPILER),pgi)
+	PFX = pgi
+
 	CC = pgcc
 	CFLAGS = -g
 	F90 = pgf90
 	FFLAGS = -g
 
-	NC_ROOT = /usr/local/netcdf4-pgi
-	H5_ROOT = /usr/local/hdf5-pgi
-	H4_ROOT = /usr/local/hdf4-pgi
 else
+	PFX = gcc
+
 	CC = gcc
 	CFLAGS = -g -Wall -std=c99 -pedantic
 	F90 = gfortran
 	FFLAGS = -g -Wall
-
-	NC_ROOT = /usr/local/netcdf4-gcc
-	H5_ROOT = /usr/local/hdf5-gcc
-	H4_ROOT = /usr/local/hdf4-gcc
 endif
 
-CFLAGS += -I. -I$(NC_ROOT)/include -I./c99/
+ifeq ($(NC4),true)
+	NC_ROOT = /usr/local/netcdf4-$(PFX)
+else
+	NC_ROOT = /usr/local/netcdf3-$(PFX)
+endif
+CFLAGS += -I. -I$(NC_ROOT)/include -Ic99/
 FFLAGS += -I. -I$(NC_ROOT)/include
 LDFLAGS = -L$(NC_ROOT)/lib
 
-ifeq ($(NC4),true)
-	FFLAGS += -DHAVE_NETCDF4
-	LDFLAGS += -lnetcdff -lnetcdf -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
-else
-	LDFLAGS += -lnetcdf
-endif
+H4_ROOT = /usr/local/hdf4-$(PFX)
 
 ifeq ($(H4),true)
 	CFLAGS += -I$(H4_ROOT)/include
 	LDFLAGS += -L$(H4_ROOT)/lib -ldf -lmfhdf -ljpeg -lz
+endif
+
+ifeq ($(NC4),true)
+	CFLAGS += -DHAVE_NETCDF4
+	FFLAGS += -DHAVE_NETCDF4
+	LDFLAGS += -lnetcdff -lnetcdf
+else
+	LDFLAGS += -lnetcdf
+endif
+
+H5_ROOT = /usr/local/hdf5-$PFX
+ifeq ($(need_h5),true)
+	CFLAGS += -I$(H5_ROOT)/include
+	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
 endif
 
 C_LDFLAGS = $(LDFLAGS) -Lc99 -lm
@@ -48,7 +75,7 @@ C99_OBJS = \
 	c99/util.o \
 	c99/sds.o \
 	c99/sds_nc.o \
-	c99/sds_hdf.o
+	c99/sds_hdf4.o
 
 NC2CODE_OBJS = \
 	nc2code/nc2code.o \

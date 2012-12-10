@@ -88,6 +88,8 @@ size_t sds_type_size(SDSType t);
 SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
 SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
 
+size_t sds_var_size(SDSVarInfo *var);
+
 void *sds_read_var(SDSInfo *sds, SDSVarInfo *var);
 
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);

@@ -42,6 +42,15 @@ SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name)
     return var;
 }
 
+size_t sds_var_size(SDSVarInfo *var)
+{
+    size_t size = sds_type_size(var->type);
+    for (int i = 0; i < var->ndims; i++) {
+        size *= var->dims[i]->size;
+    }
+    return size;
+}
+
 void *sds_read_var(SDSInfo *sds, SDSVarInfo *var)
 {
     return (sds->funcs->var_read)(sds, var);

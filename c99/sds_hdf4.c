@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include <mfhdf.h>
 #include <hproto.h>
@@ -24,6 +25,27 @@ static void hdf_error(const char *filename, int status,
 #define CHECK_HDF_ERROR(filename, status) \
     if ((status) == FAIL) hdf_error(filename,status,__FILE__,__LINE__)
 
+static const int32 _H4_START[H4_MAX_VAR_DIMS] = { // max = 32
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static void *var_read(SDSInfo *sds, SDSVarInfo *var)
+{
+    int sds_id = SDselect(sds->id, var->id);
+    CHECK_HDF_ERROR(sds->path, sds_id);
+    void *data = xmalloc(sds_var_size(var));
+    int32 size[H4_MAX_VAR_DIMS];
+    for (int i = 0; i < var->ndims; i++) {
+        size[i] = (int32)var->dims[i]->size;
+    }
+    int status = SDreaddata(sds_id, (int32 *)_H4_START, NULL, size, data);
+    CHECK_HDF_ERROR(sds->path, status);
+    status = SDendaccess(sds_id);
+    CHECK_HDF_ERROR(sds->path, status);
+    return data;
+}
+
 static void close_hdf(SDSInfo *sds)
 {
     int status = SDend(sds->id);
@@ -31,7 +53,7 @@ static void close_hdf(SDSInfo *sds)
 }
 
 static struct SDS_Funcs h4_funcs = {
-    NULL, // var_read
+    var_read,
     close_hdf
 };
 

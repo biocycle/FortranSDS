@@ -5,6 +5,7 @@
 
 static char *sds_type_names[] = {
     "<no type>", "int8", "uint8", "int16", "uint16", "int32", "uint32",
+    "int64", "uint64",
     "float", "double", "string"
 };
 
@@ -59,16 +60,30 @@ static void print_atts(SDSAttInfo *att)
                     printf(", ");
             }
             break;
+        case SDS_I64:
+            for (int i = 0; i < att->count; i++) {
+                printf("%li", (long int)att->data.i64[i]);
+                if (i + 1 < att->count)
+                    printf(", ");
+            }
+            break;
+        case SDS_U64:
+            for (int i = 0; i < att->count; i++) {
+                printf("%lu", (long unsigned int)att->data.u64[i]);
+                if (i + 1 < att->count)
+                    printf(", ");
+            }
+            break;
         case SDS_FLOAT:
             for (int i = 0; i < att->count; i++) {
-                printf("%f", (double)att->data.f[i]);
+                printf("%g", (double)att->data.f[i]);
                 if (i + 1 < att->count)
                     printf(", ");
             }
             break;
         case SDS_DOUBLE:
             for (int i = 0; i < att->count; i++) {
-                printf("%f", att->data.d[i]);
+                printf("%g", att->data.d[i]);
                 if (i + 1 < att->count)
                     printf(", ");
             }
@@ -99,6 +114,7 @@ int main(int argc, char **argv)
     if (sds->gatts) {
         puts("\nGlobal attributes:");
         print_atts(sds->gatts);
+        puts("");
     } else {
         puts("\nNo global attributes");
     }
@@ -110,7 +126,6 @@ int main(int argc, char **argv)
                dim->isunlim ? " (unlimited)" : "");
         dim = dim->next;
     }
-
 
     fputs("\nVariables:", stdout);
     SDSVarInfo *var = sds->vars;

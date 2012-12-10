@@ -41,19 +41,10 @@ static SDSType nc_to_sds_type(nc_type type)
     abort();
 }
 
-static size_t var_size(SDSVarInfo *var)
-{
-    size_t size = sds_type_size(var->type);
-    for (int i = 0; i < var->ndims; i++) {
-        size *= var->dims[i]->size;
-    }
-    return size;
-}
-
 static void *var_read(SDSInfo *sds, SDSVarInfo *var)
 {
     int status;
-    void *data = xmalloc(var_size(var));
+    void *data = xmalloc(sds_var_size(var));
 #if HAVE_NETCDF4
     status = nc_get_var(sds->id, var->id, data);
     CHECK_NC_ERROR(sds->path, status);
