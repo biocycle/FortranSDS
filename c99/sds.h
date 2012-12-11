@@ -74,23 +74,26 @@ typedef struct {
 } SDSInfo;
 
 struct SDS_Funcs {
-    void *(*var_read)(SDSInfo *, SDSVarInfo *);
+    void *(*var_readv)(SDSInfo *, SDSVarInfo *, void **, int *);
     void (*close)(SDSInfo *);
 };
 
 SDSInfo *open_nc_sds(const char *path);
-SDSInfo *open_hdf_sds(const char *path);
+SDSInfo *open_h4_sds(const char *path);
 
 void sds_close(SDSInfo *sds);
 
 size_t sds_type_size(SDSType t);
+size_t sds_var_size(SDSVarInfo *var);
 
 SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
 SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
 
-size_t sds_var_size(SDSVarInfo *var);
+void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp);
+void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **buf, int tstep);
+void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *idx);
 
-void *sds_read_var(SDSInfo *sds, SDSVarInfo *var);
+void sds_buffer_free(void *buf);
 
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);

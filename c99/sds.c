@@ -1,4 +1,5 @@
 #include "sds.h"
+#include "util.h"
 #include <string.h>
 
 size_t sds_type_size(SDSType t)
@@ -51,11 +52,65 @@ size_t sds_var_size(SDSVarInfo *var)
     return size;
 }
 
-void *sds_read_var(SDSInfo *sds, SDSVarInfo *var)
+/* Reads all of the given variable.
+ * bufp: an opaque pointer to a buffer structure used to manage memory to be
+ *       read into and other housekeeping.  In your code, create a void pointer
+ *       set to NULL, then pass in the address of that variable.  Keep passing
+ *       in that same void-pointer-pointer to re-use the buffer.  When you are
+ *       done with the buffer, use sds_buffer_free to free it from memory.
+ */
+void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp)
 {
-    return (sds->funcs->var_read)(sds, var);
+    int *index = ALLOCA(int, var->ndims);
+    for (int i = 0; i < var->ndims; i++) {
+        index[i] = var->dims[i]->size;
+    }
+    return (sds->funcs->var_readv)(sds, var, bufp, index);
 }
 
+/* Read all of one timestep (i.e. the first dimension) from the given variable.
+ * Returns a pointer to malloc()'d data managed by bufp.
+ * bufp: an opaque pointer to a buffer structure used to manage memory to be
+ *       read into and other housekeeping.  In your code, create a void pointer
+ *       set to NULL, then pass in the address of that variable.  Keep passing
+ *       in that same void-pointer-pointer to re-use the buffer.  When you are
+ *       done with the buffer, use sds_buffer_free to free it from memory.
+ */
+void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **bufp, int tstep)
+{
+    int *index = ALLOCA(int, var->ndims);
+    index[0] = tstep;
+    for (int i = 1; i < var->ndims; i++) {
+        index[i] = var->dims[i]->size;
+    }
+    return (sds->funcs->var_readv)(sds, var, bufp, index);
+}
+
+/* Read from the given variable, subsetting based on the index array.
+ * bufp: an opaque pointer to a buffer structure used to manage memory to be
+ *       read into and other housekeeping.  In your code, create a void pointer
+ *       set to NULL, then pass in the address of that variable.  Keep passing
+ *       in that same void-pointer-pointer to re-use the buffer.  When you are
+ *       done with the buffer, use sds_buffer_free to free it from memory.
+ * index: an array of var->ndims elements used to index into the variable's
+ *        data.  Each element >= 0 indicates that only that index of the
+ *        corresponding dimension will be read.  Otherwise, the whole length
+ *        of that dimension will be read.
+ */
+void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
+{
+    return (sds->funcs->var_readv)(sds, var, bufp, index);
+}
+
+struct GenericBuffer {
+    void (*free_func)(void *);
+};
+
+void sds_buffer_free(void *buf)
+{
+    struct GenericBuffer *gb = (struct GenericBuffer *)buf;
+    (gb->free_func)(buf);
+}
 
 static void free_atts(SDSAttInfo *att)
 {

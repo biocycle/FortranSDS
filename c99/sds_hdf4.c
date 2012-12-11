@@ -25,25 +25,95 @@ static void hdf_error(const char *filename, int status,
 #define CHECK_HDF_ERROR(filename, status) \
     if ((status) == FAIL) hdf_error(filename,status,__FILE__,__LINE__)
 
-static const int32 _H4_START[H4_MAX_VAR_DIMS] = { // max = 32
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+typedef struct {
+    void (*free)(void *);
+    const char *path; // don't free; a copy from SDSInfo
+    void *data;
+    size_t size;
+    int sds_index;
+    int sds_id;
+} H4Buffer;
 
-static void *var_read(SDSInfo *sds, SDSVarInfo *var)
+static void h4buffer_free(H4Buffer *buf)
 {
-    int sds_id = SDselect(sds->id, var->id);
-    CHECK_HDF_ERROR(sds->path, sds_id);
-    void *data = xmalloc(sds_var_size(var));
-    int32 size[H4_MAX_VAR_DIMS];
-    for (int i = 0; i < var->ndims; i++) {
-        size[i] = (int32)var->dims[i]->size;
+    assert(buf->free == (void (*)(void *))h4buffer_free);
+
+    if (buf->data) {
+        free(buf->data);
     }
-    int status = SDreaddata(sds_id, (int32 *)_H4_START, NULL, size, data);
+    if (buf->sds_id != -1) {
+        int status = SDendaccess(buf->sds_id);
+        CHECK_HDF_ERROR(buf->path, status);
+    }
+    free(buf);
+}
+
+static H4Buffer *h4buffer_create(SDSInfo *sds)
+{
+    H4Buffer *buf = NEW(H4Buffer);
+    buf->free = (void (*)(void *))h4buffer_free;
+    buf->path = sds->path;
+    buf->data = NULL;
+    buf->size = 0;
+    buf->sds_index = -1;
+    buf->sds_id = -1;
+    return buf;
+}
+
+static void h4buffer_ensure(H4Buffer *buf, size_t cap_needed)
+{
+    if (buf->size < cap_needed) {
+        buf->data = xrealloc(buf->data, cap_needed);
+        buf->size = cap_needed;
+    }
+}
+
+static H4Buffer *prep_read_buffer(SDSInfo *sds, SDSVarInfo *var, void **bufp)
+{
+    H4Buffer *buf = (H4Buffer *)*bufp;
+    if (buf) {
+        assert(buf->free == (void (*)(void *))h4buffer_free);
+    } else {
+        buf = h4buffer_create(sds);
+    }
+
+    if (buf->sds_index != var->id) {
+        if (buf->sds_id != -1) { // close other var
+            int status = SDendaccess(buf->sds_id);
+            CHECK_HDF_ERROR(buf->path, status);
+        }
+
+        // open this var
+        buf->sds_id = SDselect(sds->id, var->id);
+        CHECK_HDF_ERROR(sds->path, buf->sds_id);
+        buf->sds_index = var->id;
+    }
+
+    return buf;
+}
+
+static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
+{
+    int32 start[H4_MAX_VAR_DIMS], count[H4_MAX_VAR_DIMS];
+    size_t bufsize = sds_type_size(var->type);
+    for (int i = 0; i < var->ndims; i++) {
+        if (index[i] < 0) {
+            start[i] = 0;
+            count[i]   = (int32)var->dims[i]->size;
+        } else {
+            start[i] = (int32)index[i];
+            count[i]   = 1;
+        }
+        bufsize *= (size_t)count[i];
+    }
+
+    H4Buffer *buf = prep_read_buffer(sds, var, bufp);
+    h4buffer_ensure(buf, bufsize);
+
+    int status = SDreaddata(buf->sds_id, start, NULL, count, buf->data);
     CHECK_HDF_ERROR(sds->path, status);
-    status = SDendaccess(sds_id);
-    CHECK_HDF_ERROR(sds->path, status);
-    return data;
+
+    return buf->data;
 }
 
 static void close_hdf(SDSInfo *sds)
@@ -53,7 +123,7 @@ static void close_hdf(SDSInfo *sds)
 }
 
 static struct SDS_Funcs h4_funcs = {
-    var_read,
+    var_readv,
     close_hdf
 };
 
@@ -212,7 +282,7 @@ static SDSDimInfo **read_dimensions(SDSInfo *sds, int sds_id, int rank,
 /* Opens an HDF file and reads all its SDS metadata, returning an SDSInfo
  * structure containing this metadata.  Returns NULL on error.
  */
-SDSInfo *open_hdf_sds(const char *path)
+SDSInfo *open_h4_sds(const char *path)
 {
     int i, status;
 
@@ -249,7 +319,7 @@ SDSInfo *open_hdf_sds(const char *path)
         var->ndims = rank;
         var->dims = read_dimensions(sds, sds_id, rank, dim_sizes);
         var->atts = read_attributes(path, sds_id, natts);
-        var->id = i; // actually the rank
+        var->id = i; // actually the sds_index
 
         var->next = sds->vars;
         sds->vars = var;
