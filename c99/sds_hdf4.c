@@ -183,9 +183,13 @@ static SDSAttInfo *read_attributes(const char *path, int obj_id, int natts)
 
         // read attribute data
         size_t typesize = h4_typesize(type);
+        if (type == DFNT_CHAR8 || type == DFNT_UCHAR8)
+            nvalues++;
         void *data = xmalloc(typesize * nvalues);
         status = SDreadattr(obj_id, i, data);
         CHECK_HDF_ERROR(path, status);
+        if (type == DFNT_CHAR8 || type == DFNT_UCHAR8)
+            ((char *)data)[nvalues - 1] = '\0';
 
         // stick attribute in struct in list
         att = NEW(SDSAttInfo);

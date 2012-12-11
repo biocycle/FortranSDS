@@ -180,7 +180,7 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         switch (type) {
         case NC_NAT:    bytes = 0; break;
         case NC_BYTE:   bytes = 1; break;
-        case NC_CHAR:   bytes = 1; break;
+        case NC_CHAR:   bytes = 1; count++; break;
         case NC_SHORT:  bytes = 2; break;
         case NC_INT:    bytes = 4; break;
         case NC_FLOAT:  bytes = 4; break;
@@ -191,6 +191,9 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         data = xmalloc(count * bytes);
         status = nc_get_att(ncid, id, buf, data);
         CHECK_NC_ERROR(path, status);
+        if (type == NC_CHAR) {
+            ((char *)data)[count - 1] = '\0';
+        }
 
         att = NEW(SDSAttInfo);
         att->name = xstrdup(buf);
