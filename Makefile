@@ -47,8 +47,8 @@ LDFLAGS = -L$(NC_ROOT)/lib
 H4_ROOT = /usr/local/hdf4-$(PFX)
 
 ifeq ($(H4),true)
-	CFLAGS += -I$(H4_ROOT)/include
-	LDFLAGS += -L$(H4_ROOT)/lib -ldf -lmfhdf -ljpeg -lz
+	CFLAGS += -I$(H4_ROOT)/include -DHAVE_HDF4
+	LDFLAGS += -L$(H4_ROOT)/lib -lmfhdf -ldf -ljpeg -lz
 endif
 
 ifeq ($(NC4),true)
@@ -61,7 +61,7 @@ endif
 
 H5_ROOT = /usr/local/hdf5-$PFX
 ifeq ($(need_h5),true)
-	CFLAGS += -I$(H5_ROOT)/include
+	CFLAGS += -I$(H5_ROOT)/include -DHAVE_HDF5
 	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
 endif
 
@@ -110,8 +110,8 @@ c99/libsimplesds.a: $(C99_OBJS)
 nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
 
-dump_hdf: c99/libsimplesds.a dump_hdf.o
-	$(CC) -o $@ dump_hdf.o -lsimplesds $(C_LDFLAGS)
+dump_sds: c99/libsimplesds.a dump_sds.o
+	$(CC) -o $@ dump_sds.o -lsimplesds $(C_LDFLAGS)
 
 doc: doc/simple_netcdf.html
 

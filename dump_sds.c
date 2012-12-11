@@ -3,6 +3,10 @@
 
 #include <stdio.h>
 
+static char *sds_file_types[] = {
+    "unknown", "NetCDF3", "NetCDF4", "HDF4", "HDF5"
+};
+
 static char *sds_type_names[] = {
     "<no type>", "int8", "uint8", "int16", "uint16", "int32", "uint32",
     "int64", "uint64",
@@ -104,9 +108,10 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    SDSInfo *sds = open_hdf_sds(argv[1]);
+    SDSInfo *sds = open_any_sds(argv[1]);
 
-    printf("%s: %u atts, %u dims, %u vars\n", sds->path,
+    printf("%s:\n  %s format; %u global attributes, %u dimensions, %u variables\n", sds->path,
+           sds_file_types[(int)sds->type],
            (unsigned)list_count((List *)sds->gatts),
            (unsigned)list_count((List *)sds->dims),
            (unsigned)list_count((List *)sds->vars));

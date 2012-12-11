@@ -257,6 +257,27 @@ SDSInfo *open_nc_sds(const char *path)
     sds->path = xstrdup(path);
     sds->id = ncid;
 
+#if HAVE_NETCDF4
+    int fmt;
+    status = nc_inq_format(ncid, &fmt);
+    CHECK_NC_ERROR(path, status);
+    switch (fmt) {
+    case NC_FORMAT_CLASSIC:
+    case NC_FORMAT_64BIT:
+        sds->type = SDS_NC3_FILE;
+        break;
+    case NC_FORMAT_NETCDF4:
+    case NC_FORMAT_NETCDF4_CLASSIC:
+        sds->type = SDS_NC4_FILE;
+        break;
+    default:
+        sds->type = SDS_UNKNOWN_FILE;
+        break;
+    }
+#else
+    sds->type = SDS_NC3_FILE;
+#endif
+
     /* get counts for everything */
     unlimdimid = -1;
     status = nc_inq(ncid, &ndims, &nvars, &ngatts, &unlimdimid);

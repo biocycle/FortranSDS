@@ -5,6 +5,14 @@
 #include <stdlib.h>
 
 typedef enum {
+    SDS_UNKNOWN_FILE,
+    SDS_NC3_FILE,
+    SDS_NC4_FILE,
+    SDS_HDF4_FILE,
+    SDS_HDF5_FILE
+} SDSFileType;
+
+typedef enum {
     SDS_NO_TYPE,
     SDS_I8,
     SDS_U8,
@@ -62,6 +70,7 @@ typedef struct SDSVarInfo {
 
 typedef struct {
     char *path;
+    SDSFileType type;
     SDSAttInfo *gatts;
     SDSDimInfo *dims;
     SDSVarInfo *vars;
@@ -78,8 +87,11 @@ struct SDS_Funcs {
     void (*close)(SDSInfo *);
 };
 
+SDSFileType sds_file_type(const char *path);
+
 SDSInfo *open_nc_sds(const char *path);
 SDSInfo *open_h4_sds(const char *path);
+SDSInfo *open_any_sds(const char *path);
 
 void sds_close(SDSInfo *sds);
 

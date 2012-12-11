@@ -300,6 +300,7 @@ SDSInfo *open_h4_sds(const char *path)
 
     SDSInfo *sds = NEW0(SDSInfo);
     sds->path = xstrdup(path);
+    sds->type = SDS_HDF4_FILE;
     sds->id = sd_id;
 
     // read global attributes

@@ -1,6 +1,80 @@
 #include "sds.h"
 #include "util.h"
+#include <stdio.h>
 #include <string.h>
+
+#ifdef HAVE_HDF4
+#  include <hdf.h>    
+#endif
+
+static int sds_magic(const char *path)
+{
+    int ret = 0;
+
+    FILE *fin = fopen(path, "r");
+    if (!fin)
+        return 0;
+    char buf[4];
+    if (fread(buf, 1, sizeof(buf), fin) < sizeof(buf))
+        goto done;
+
+    if (buf[0] == 'C' && buf[1] == 'D' && buf[2] == 'F' &&
+        (buf[3] == 0x1 || buf[3] == 0x2)) {
+        ret = 3; // NetCDF classic or 64-bit offset
+    } else if (buf[0] == 137 && buf[1] == 'H' && buf[2] == 'D' && buf[3] == 'F') {
+        if (fread(buf, 1, sizeof(buf), fin) < sizeof(buf))
+            goto done;
+        if (buf[0] != '\r' || buf[1] != '\n' || buf[2] != ' ' || buf[3] != '\n')
+            goto done;
+        size_t len = strlen(path);
+        if (!strcmp(path+len-4, ".hdf") ||
+            !strcmp(path+len-3, ".h5") ||
+            !strcmp(path+len-5, ".hdf5") ||
+            !strcmp(path+len-4, ".he5"))
+            ret = 5; // just an HDF5 file 'cuz extension sez so
+        else
+            ret = 4; // assume NetCDF v.4 using HDF5 file format
+    }
+ done:
+    fclose(fin);
+    return ret;
+}
+
+SDSFileType sds_file_type(const char *path)
+{
+#ifdef HAVE_HDF4
+    if (Hishdf(path))
+        return SDS_HDF4_FILE;
+#endif
+    switch (sds_magic(path)) {
+    case 3: return SDS_NC3_FILE;
+    case 4: return SDS_NC4_FILE;
+    case 5: return SDS_HDF5_FILE;
+    default: break;
+    }
+    return SDS_UNKNOWN_FILE;
+}
+
+SDSInfo *open_any_sds(const char *path)
+{
+    switch (sds_file_type(path)) {
+
+    case SDS_NC3_FILE:
+#ifdef HAVE_NETCDF4
+    case SDS_NC4_FILE:
+#endif
+        return open_nc_sds(path);
+
+#ifdef HAVE_HDF4
+    case SDS_HDF4_FILE:
+        return open_h4_sds(path);
+#endif
+
+    default:
+        break;
+    }
+    return NULL;
+}
 
 size_t sds_type_size(SDSType t)
 {
