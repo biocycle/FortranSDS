@@ -137,7 +137,7 @@ void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp)
 {
     int *index = ALLOCA(int, var->ndims);
     for (int i = 0; i < var->ndims; i++) {
-        index[i] = var->dims[i]->size;
+        index[i] = -1; // read all of this dimension
     }
     return (sds->funcs->var_readv)(sds, var, bufp, index);
 }
@@ -155,7 +155,7 @@ void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **bufp, int tstep)
     int *index = ALLOCA(int, var->ndims);
     index[0] = tstep;
     for (int i = 1; i < var->ndims; i++) {
-        index[i] = var->dims[i]->size;
+        index[i] = -1; // read all of this dimension
     }
     return (sds->funcs->var_readv)(sds, var, bufp, index);
 }
