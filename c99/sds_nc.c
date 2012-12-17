@@ -76,7 +76,7 @@ static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
     if (buf) {
         assert(buf->free == (void (*)(void *))nc_buffer_free);
     } else {
-        buf = nc_buffer_create(sds);
+        *((NCBuffer **)bufp) = buf = nc_buffer_create(sds);
     }
     nc_buffer_ensure(buf, bufsize);
 

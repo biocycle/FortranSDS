@@ -74,7 +74,7 @@ static H4Buffer *prep_read_buffer(SDSInfo *sds, SDSVarInfo *var, void **bufp)
     if (buf) {
         assert(buf->free == (void (*)(void *))h4buffer_free);
     } else {
-        buf = h4buffer_create(sds);
+        *((H4Buffer **)bufp) = buf = h4buffer_create(sds);
     }
 
     if (buf->sds_index != var->id) {
