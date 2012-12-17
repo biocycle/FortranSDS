@@ -109,6 +109,11 @@ int main(int argc, char **argv)
     }
 
     SDSInfo *sds = open_any_sds(argv[1]);
+    if (!sds) {
+        printf("%s: Not a supported Scientific Data Set (SDS) file\n",
+               argv[1]);
+        return -2;
+    }
 
     printf("%s:\n  %s format; %u global attributes, %u dimensions, %u variables\n", sds->path,
            sds_file_types[(int)sds->type],
