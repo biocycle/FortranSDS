@@ -101,6 +101,8 @@ size_t sds_var_size(SDSVarInfo *var);
 SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
 SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
 
+void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp);
+
 void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp);
 void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **buf, int tstep);
 void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *idx);

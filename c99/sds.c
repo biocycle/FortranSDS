@@ -126,6 +126,14 @@ size_t sds_var_size(SDSVarInfo *var)
     return size;
 }
 
+void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
+{
+    SDSVarInfo *var = sds_var_by_name(sds, name);
+    if (!var)
+        return NULL;
+    return sds_read(sds, var, bufp);
+}
+
 /* Reads all of the given variable.
  * bufp: an opaque pointer to a buffer structure used to manage memory to be
  *       read into and other housekeeping.  In your code, create a void pointer
