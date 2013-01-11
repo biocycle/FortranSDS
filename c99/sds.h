@@ -129,7 +129,7 @@ void sds_close(SDSInfo *sds);
 SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars);
 
 SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
-                           size_t count, void *data);
+                           size_t count, const void *data);
 SDSAttInfo *sds_create_stratt(SDSAttInfo *next, const char *name,
                               const char *str);
 

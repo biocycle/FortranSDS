@@ -4,10 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_HDF4
-#  include <hdf.h>    
-#endif
-
 static SDSAttInfo *atts_generic_copy(SDSAttInfo *att)
 {
     SDSAttInfo *next = (att->next == NULL) ? NULL : atts_generic_copy(att->next);
@@ -82,7 +78,7 @@ SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars)
  *        attribute.
  */
 SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
-                           size_t count, void *data)
+                           size_t count, const void *data)
 {
     SDSAttInfo *att = NEW(SDSAttInfo);
     att->next = next;
@@ -179,13 +175,15 @@ static int sds_magic(const char *path)
     FILE *fin = fopen(path, "r");
     if (!fin)
         return 0;
-    char buf[4];
+    unsigned char buf[4];
     if (fread(buf, 1, sizeof(buf), fin) < sizeof(buf))
         goto done;
 
     if (buf[0] == 'C' && buf[1] == 'D' && buf[2] == 'F' &&
         (buf[3] == 0x1 || buf[3] == 0x2)) {
         ret = 3; // NetCDF classic or 64-bit offset
+    } else if (buf[0] == 14 && buf[1] == 3 && buf[2] == 19 && buf[3] == 1) {
+        ret = 1; // HDF 4
     } else if (buf[0] == 137 && buf[1] == 'H' && buf[2] == 'D' && buf[3] == 'F') {
         if (fread(buf, 1, sizeof(buf), fin) < sizeof(buf))
             goto done;
@@ -207,11 +205,8 @@ static int sds_magic(const char *path)
 
 SDSFileType sds_file_type(const char *path)
 {
-#ifdef HAVE_HDF4
-    if (Hishdf(path))
-        return SDS_HDF4_FILE;
-#endif
     switch (sds_magic(path)) {
+    case 1: return SDS_HDF4_FILE;
     case 3: return SDS_NC3_FILE;
     case 4: return SDS_NC4_FILE;
     case 5: return SDS_HDF5_FILE;
@@ -334,7 +329,7 @@ void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf)
     for (int i = 0; i < var->ndims; i++) {
         index[i] = -1; // read all of this dimension
     }
-    return (sds->funcs->var_writev)(sds, var, buf, index);
+    (sds->funcs->var_writev)(sds, var, buf, index);
 }
 
 /* Read all of one timestep (i.e. the first dimension) from the given variable.

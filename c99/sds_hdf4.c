@@ -116,6 +116,12 @@ static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
     return buf->data;
 }
 
+static void var_writev(SDSInfo *sds, SDSVarInfo *var, void *data, int *index)
+{
+	fprintf(stderr, "hdf4 variable writing not implemented yet!\n");
+	abort();
+}
+
 static void close_hdf(SDSInfo *sds)
 {
     int status = SDend(sds->id);
@@ -124,6 +130,7 @@ static void close_hdf(SDSInfo *sds)
 
 static struct SDS_Funcs h4_funcs = {
     var_readv,
+	var_writev,
     close_hdf
 };
 
