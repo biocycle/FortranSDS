@@ -2,6 +2,7 @@
 #include "c99/util.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static char *sds_file_types[] = {
     "unknown", "NetCDF3", "NetCDF4", "HDF4", "HDF5"
@@ -15,8 +16,22 @@ static char *sds_type_names[] = {
 
 static void print_atts(SDSAttInfo *att)
 {
+    char typebuf[14];
+    int i;
+
     while (att) {
-        printf("\n  %s %s = ", sds_type_names[att->type], att->name);
+        memset(typebuf, ' ', sizeof(typebuf) - 1);
+        typebuf[sizeof(typebuf) - 1] = '\0';
+
+        if (att->type == SDS_STRING) {
+            i = snprintf(typebuf, sizeof(typebuf), "string(%u)", (unsigned)(att->count - 1));
+        } else {
+            char *s = sds_type_names[att->type];
+            i = strlen(s);
+            memcpy(typebuf, s, i);
+        }
+        typebuf[i] = ' ';
+        printf("\n  %s %s = ", typebuf, att->name);
 
         switch (att->type) {
         case SDS_NO_TYPE:
