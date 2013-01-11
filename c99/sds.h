@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// multi-dimensional array indexing mapped onto 1-d array
+#define SDS_IDX2D(lat,lon, nlon) (lon + nlon * lat)
+#define SDS_IDX3D(lev,lat,lon, nlat,nlon) (lon + nlon * (lat + lev * nlat))
+#define SDS_IDX4D(time,lev,lat,lon, nlev,nlat,nlon) \
+    (lon + nlon * (lat + nlat * (lev + time * nlev)))
+
 typedef enum {
     SDS_UNKNOWN_FILE,
     SDS_NC3_FILE,
