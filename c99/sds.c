@@ -1,11 +1,176 @@
 #include "sds.h"
 #include "util.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #ifdef HAVE_HDF4
 #  include <hdf.h>    
 #endif
+
+static SDSAttInfo *atts_generic_copy(SDSAttInfo *att)
+{
+    SDSAttInfo *next = (att->next == NULL) ? NULL : atts_generic_copy(att->next);
+    return sds_create_att(next, att->name, att->type, att->count, att->data.v);
+}
+
+static SDSDimInfo *dims_generic_copy(SDSDimInfo *dim)
+{
+    SDSDimInfo *next = (dim->next == NULL) ? NULL : dims_generic_copy(dim->next);
+    return sds_create_dim(next, dim->name, dim->size, dim->isunlim);
+}
+
+static SDSVarInfo *vars_generic_copy(SDSVarInfo *var)
+{
+    SDSVarInfo *next = (var->next == NULL) ? NULL : vars_generic_copy(var->next);
+    return sds_create_var(next, var->name, var->type, var->iscoord, var->atts,
+                          var->ndims, var->dims);
+}
+
+/* Copies an SDSInfo struct, its attributes, dimensions and variables. The copy
+ * is deep and typeless (i.e. not tied to  NetCDF, HDF, etc.), so a new SDS
+ * file of any type can be created from it.
+ *
+ * The returned data structure still needs to be freed with sds_close() even
+ * if you don't write it to a file.
+ */
+SDSInfo *sds_generic_copy(SDSInfo *sds)
+{
+    return create_sds(atts_generic_copy(sds->gatts),
+                      dims_generic_copy(sds->dims),
+                      vars_generic_copy(sds->vars));
+}
+
+/* Create a new SDSInfo with the given global attributes, dimensions and
+ * variables.  These members should be created for this SDSInfo and not
+ * belong to another one since they will be freed in the call to sds_close()
+ * (which you should use whether you write to a file or not).
+ */
+SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars)
+{
+    SDSInfo *sds = NEW(SDSInfo);
+    sds->path = NULL;
+    sds->type = SDS_UNKNOWN_FILE;
+    sds->gatts = gatts;
+    sds->dims = dims;
+    sds->vars = vars;
+
+    SDSDimInfo *unlim = NULL;
+    while (dims) {
+        if (dims->isunlim) {
+            if (unlim) { // more than one unlimited dimension!
+                unlim = NULL;
+                break;
+            }
+            unlim = dims;
+        }
+        dims = dims->next;
+    }
+    sds->unlimdim = unlim;
+
+    sds->id = -1;
+    sds->funcs = NULL;
+    return sds;
+}
+
+/* Creates a new SDSAttInfo with the given values.  These values are copied
+ * (where applicable), so you are responsible for freeing any dynamically-
+ * allocated memory passed in.  In turn, the returned struct should be freed
+ * by attaching it to an SDSInfo which is freed by a call to sds_close().
+ *
+ * next - The next SDSAttInfo in the list, or NULL if this is the first
+ *        attribute.
+ */
+SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
+                           size_t count, void *data)
+{
+    SDSAttInfo *att = NEW(SDSAttInfo);
+    att->next = next;
+    att->name = xstrdup(name);
+    att->type = type;
+    att->count = count;
+    att->bytes = sds_type_size(type);
+    att->data.v = malloc(sds_type_size(type) * count);
+    memcpy(att->data.v, data, sds_type_size(type) * count);
+    return att;
+}
+
+/* Creates a new string attribute.  This helper function makes it easier to
+ * create string-type attributes, the most common kind.  See sds_create_att()
+ * for more.
+ */
+SDSAttInfo *sds_create_stratt(SDSAttInfo *next, const char *name,
+                              const char *str)
+{
+    return sds_create_att(next, name, SDS_STRING, strlen(str) + 1, str);
+}
+
+/* Creates a new SDSDimInfo.  The name argument is copied, so you are
+ * responsible for freeing its memory (if applicable).
+ *
+ * next - the next SDSDimInfo in the list, or NULL if this is the first
+ *        dimension.
+ */
+SDSDimInfo *sds_create_dim(SDSDimInfo *next, const char *name, size_t size,
+                           int isunlim)
+{
+    SDSDimInfo *dim = NEW(SDSDimInfo);
+    dim->next = next;
+    dim->name = xstrdup(name);
+    dim->size = size;
+    dim->isunlim = isunlim;
+    dim->id = -1;
+    return dim;
+}
+
+/* Creates a new SDSVarInfo like sds_create_var(), but takes the dimensions
+ * as a series of SDSDimInfo* arguments instead of an array you have to
+ * populate.  See sds_create_var() for details.
+ */
+SDSVarInfo *sds_create_varv(SDSVarInfo *next, const char *name, SDSType type,
+                            int iscoord, SDSAttInfo *atts, int ndims, ...)
+{
+    SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * ndims);
+    va_list ap;
+
+    va_start(ap, ndims);
+    for (int i = 0; i < ndims; i++) {
+        dims[i] = va_arg(ap, SDSDimInfo *);
+    }
+    va_end(ap);
+
+    return sds_create_var(next, name, type, iscoord, atts,
+                          ndims, dims);
+}
+
+/* Creates a new SDSVarInfo with the given arguments.  The name is copied,
+ * so you do not give ownership of that argument.  The atts ownership is
+ * taken by the new SDSVarInfo though, so they need to be separately
+ * allocated from other variables' attributes.
+ *
+ * next - the next SDSVarInfo in the list, or NULL if this is the first
+ *        variable.
+ * atts - a chain of attributes for this variable.  Not copied; must be
+ *        created (malloc()d) separately for this variable.
+ * dims - array of dimension pointers from left to right.  The array will
+ *        be copied
+ */
+SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
+                           int iscoord, SDSAttInfo *atts,
+                           int ndims, SDSDimInfo **dims)
+{
+    SDSVarInfo *var = NEW(SDSVarInfo);
+    var->next = next;
+    var->name = xstrdup(name);
+    var->type = type;
+    var->iscoord = iscoord;
+    var->ndims = ndims;
+    var->dims = malloc(sizeof(SDSDimInfo *) * ndims);
+    memcpy(var->dims, dims, sizeof(SDSDimInfo *) * ndims);
+    var->atts = atts;
+    var->id = -1;
+    return var;
+}
 
 static int sds_magic(const char *path)
 {
@@ -117,6 +282,9 @@ SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name)
     return var;
 }
 
+/* Calculates the number of bytes required for the variable's entire data
+ * by multiplying the dimensions together.
+ */
 size_t sds_var_size(SDSVarInfo *var)
 {
     size_t size = sds_type_size(var->type);
@@ -126,6 +294,13 @@ size_t sds_var_size(SDSVarInfo *var)
     return size;
 }
 
+/* Helper function to read the entire contents of the named variable.
+ *
+ * bufp - a pointer to an opaque data buffer holding the variable's
+ *        malloc()d data and other bookkeeping information.  When you
+ *        are done with the data but before you close the file,
+ *        call sds_buffer_free() to free this opaque pointer.
+ */
 void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
 {
     SDSVarInfo *var = sds_var_by_name(sds, name);
@@ -148,6 +323,18 @@ void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp)
         index[i] = -1; // read all of this dimension
     }
     return (sds->funcs->var_readv)(sds, var, bufp, index);
+}
+
+/* Writes all of a given variable.
+ * buf: a pointer to the raw data.
+ */
+void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf)
+{
+    int *index = ALLOCA(int, var->ndims);
+    for (int i = 0; i < var->ndims; i++) {
+        index[i] = -1; // read all of this dimension
+    }
+    return (sds->funcs->var_writev)(sds, var, buf, index);
 }
 
 /* Read all of one timestep (i.e. the first dimension) from the given variable.
@@ -229,7 +416,8 @@ static void free_vars(SDSVarInfo *var)
 
 void sds_close(SDSInfo *sds)
 {
-    sds->funcs->close(sds);
+    if (sds->funcs)
+        sds->funcs->close(sds);
 
     free_atts(sds->gatts);
     free_dims(sds->dims);

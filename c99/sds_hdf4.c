@@ -1,4 +1,4 @@
-/* sds_nc.c - NetCDF implementation of SDS interface.
+/* sds_hdf4.c - HDF4 implementation of SDS interface.
  * Copyright (C) 2011 Matthew S. Bishop
  */
 #include "sds.h"

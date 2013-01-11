@@ -27,6 +27,12 @@ typedef enum {
     SDS_STRING
 } SDSType;
 
+#define SDS_COORD 1
+#define SDS_DATA 0
+
+#define SDS_UNLIM 1
+#define SDS_LIM 0
+
 typedef struct SDSAttInfo {
     struct SDSAttInfo *next;
     char *name;
@@ -84,23 +90,21 @@ typedef struct {
 
 struct SDS_Funcs {
     void *(*var_readv)(SDSInfo *, SDSVarInfo *, void **, int *);
+    void (*var_writev)(SDSInfo *, SDSVarInfo *, void *, int *);
     void (*close)(SDSInfo *);
 };
 
 SDSFileType sds_file_type(const char *path);
 
+// open existing SDS file
 SDSInfo *open_nc_sds(const char *path);
 SDSInfo *open_h4_sds(const char *path);
 SDSInfo *open_any_sds(const char *path);
 
-void sds_close(SDSInfo *sds);
+// write new SDS file
+void write_as_nc_sds(const char *path, SDSInfo *sds);
 
-size_t sds_type_size(SDSType t);
-size_t sds_var_size(SDSVarInfo *var);
-
-SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
-SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
-
+// read variable data
 void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp);
 
 void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp);
@@ -108,6 +112,38 @@ void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **buf, int tstep);
 void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *idx);
 
 void sds_buffer_free(void *buf);
+
+// write variable data
+void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf);
+
+// close any open SDS file
+void sds_close(SDSInfo *sds);
+
+// Creating new SDS structures from scratch
+SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars);
+
+SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
+                           size_t count, void *data);
+SDSAttInfo *sds_create_stratt(SDSAttInfo *next, const char *name,
+                              const char *str);
+
+SDSDimInfo *sds_create_dim(SDSDimInfo *next, const char *name, size_t size,
+                           int isunlim);
+
+SDSVarInfo *sds_create_varv(SDSVarInfo *next, const char *name, SDSType type,
+                            int iscoord, SDSAttInfo *atts, int ndims, ...);
+SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
+                           int iscoord, SDSAttInfo *atts,
+                           int ndims, SDSDimInfo **dims);
+
+// Copy an existing SDS structure to write a modified version thereof
+SDSInfo *sds_generic_copy(SDSInfo *sds);
+
+size_t sds_type_size(SDSType t);
+size_t sds_var_size(SDSVarInfo *var);
+
+SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
+SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
 
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);

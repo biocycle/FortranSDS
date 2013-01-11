@@ -88,40 +88,91 @@ static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
     case SDS_I8:
         status = nc_get_vars_uchar(sds->id, var->id, start, count, NULL,
                                    (unsigned char*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_I16:
         status = nc_get_vars_short(sds->id, var->id, start, count, NULL,
                                    (short*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_I32:
         status = nc_get_vars_int(sds->id, var->id, start, count, NULL,
                                  (int*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_FLOAT:
         status = nc_get_vars_float(sds->id, var->id, start, count, NULL,
                                    (float*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_DOUBLE:
         status = nc_get_vars_double(sds->id, var->id, start, count, NULL,
                                     (double*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_STRING:
         status = nc_get_vars_text(sds->id, var->id, start, count, NULL,
                                   (char*)buf->data);
-        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_NO_TYPE:
     default:
         abort();
         break;
     }
+    CHECK_NC_ERROR(sds->path, status);
 #endif
     return buf->data;
+}
+
+static void var_writev(SDSInfo *sds, SDSVarInfo *var, void *data, int *index)
+{
+    int status;
+
+    size_t *start = ALLOCA(size_t, var->ndims);
+    size_t *count = ALLOCA(size_t, var->ndims);
+    for (int i = 0; i < var->ndims; i++) {
+        if (index[i] < 0) {
+            start[i] = 0;
+            count[i] = var->dims[i]->size;
+        } else {
+            start[i] = (size_t)index[i];
+            count[i] = 1;
+        }
+    }
+
+#if HAVE_NETCDF4
+    status = nc_put_vars(sds->id, var->id, start, count, NULL, data);
+#else
+    switch (var->type) {
+    case SDS_I8:
+        status = nc_put_vars_uchar(sds->id, var->id, start, count, NULL,
+                                   (unsigned char*)data);
+        break;
+    case SDS_I16:
+        status = nc_put_vars_short(sds->id, var->id, start, count, NULL,
+                                   (short*)data);
+        break;
+    case SDS_I32:
+        status = nc_put_vars_int(sds->id, var->id, start, count, NULL,
+                                 (int*)data);
+        break;
+    case SDS_FLOAT:
+        status = nc_put_vars_float(sds->id, var->id, start, count, NULL,
+                                   (float*)data);
+        break;
+    case SDS_DOUBLE:
+        status = nc_put_vars_double(sds->id, var->id, start, count, NULL,
+                                    (double*)data);
+        break;
+    case SDS_STRING:
+        status = nc_put_vars_text(sds->id, var->id, start, count, NULL,
+                                  (char*)data);
+        break;
+    case SDS_NO_TYPE:
+    default:
+        fprintf(stderr, "Attempt to write variable %s type %i unsupported "
+                "by NetCDF 3\n", var->name, (int)var->type);
+
+        abort();
+        break;
+    }
+#endif
+    CHECK_NC_ERROR(sds->path, status);
 }
 
 static void close_nc(SDSInfo *sds)
@@ -132,6 +183,7 @@ static void close_nc(SDSInfo *sds)
 
 static struct SDS_Funcs nc_funcs = {
     var_readv,
+    var_writev,
     close_nc
 };
 
@@ -152,6 +204,27 @@ static SDSType nc_to_sds_type(nc_type type)
     case NC_UINT64: return SDS_U64;
     case NC_STRING: return SDS_STRING;
 #endif
+    default: break;
+    }
+    abort();
+}
+
+static nc_type sds_to_nc_type(SDSType type)
+{
+    switch (type) {
+    case SDS_NO_TYPE: return NC_NAT;
+    case SDS_I8:      return NC_BYTE;
+    case SDS_I16:     return NC_SHORT;
+    case SDS_I32:     return NC_INT;
+#if HAVE_NETCDF4
+    case SDS_U16:     return NC_USHORT;
+    case SDS_U32:     return NC_UINT;
+    case SDS_I64:     return NC_INT64;
+    case SDS_U64:     return NC_UINT64;
+#endif
+    case SDS_FLOAT:   return NC_FLOAT;
+    case SDS_DOUBLE:  return NC_DOUBLE;
+    case SDS_STRING:  return NC_CHAR;
     default: break;
     }
     abort();
@@ -349,4 +422,100 @@ SDSInfo *open_nc_sds(const char *path)
 
     sds->funcs = &nc_funcs;
     return sds;
+}
+
+static void def_atts(const char *path, int ncid, int varid, SDSAttInfo *att)
+{
+    int status;
+
+    while (att) {
+#ifdef HAVE_NETCDF4
+        status = nc_put_att(ncid, varid, att->name, sds_to_nc_type(att->type),
+                            att->count, att->data.v);
+#else
+        switch (att->type) {
+        case SDS_I8:
+            status = nc_put_att_schar(ncid, varid, att->name, NC_BYTE,
+                                      att->count, att->data.b);
+            break;
+        case SDS_I16:
+            status = nc_put_att_short(ncid, varid, att->name, NC_SHORT,
+                                      att->count, att->data.s);
+            break;
+        case SDS_I32:
+            status = nc_put_att_int(ncid, varid, att->name, NC_INT,
+                                    att->count, att->data.i);
+            break;
+        case SDS_FLOAT:
+            status = nc_put_att_float(ncid, varid, att->name, NC_FLOAT,
+                                      att->count, att->data.f);
+            break;
+        case SDS_DOUBLE:
+            status = nc_put_att_double(ncid, varid, att->name, NC_DOUBLE,
+                                       att->count, att->data.d);
+            break;
+        case SDS_STRING:
+            status = nc_put_att_text(ncid, varid, att->name,
+                                     (size_t)att->count, att->data.str);
+            break;
+        default:
+            fprintf(stderr, "Attempt to create attribute %s type %i "
+                    "unsupported by NetCDF 3\n", att->name, (int)att->type);
+            abort();
+            break;
+        }
+#endif
+        CHECK_NC_ERROR(path, status);
+
+        att = att->next;
+    }
+}
+
+void write_as_nc_sds(const char *path, SDSInfo *sds)
+{
+    // make sure we're not starting from an open file
+    if (sds->type != SDS_UNKNOWN_FILE || sds->funcs != NULL) {
+        fprintf(stderr, "Attempt to create nc file %s from uncopied SDSInfo\n",
+                path);
+        abort();
+    }
+
+    int status, ncid, flags = 0;
+#if HAVE_NETCDF4
+    flags = NC_NETCDF4;
+#endif
+    status = nc_create(path, flags, &ncid);
+    CHECK_NC_ERROR(path, status);
+
+    SDSDimInfo *dim = sds->dims;
+    while (dim) {
+        status = nc_def_dim(ncid, dim->name, dim->isunlim ? NC_UNLIMITED : dim->size, &dim->id);
+        CHECK_NC_ERROR(path, status);
+
+        dim = dim->next;
+    }
+
+    SDSVarInfo *var = sds->vars;
+    while (var) {
+        int i, dimids[NC_MAX_VAR_DIMS];
+        for (i = 0; i < var->ndims; i++)
+            dimids[i] = var->dims[i]->id;
+        status = nc_def_var(ncid, var->name, sds_to_nc_type(var->type), var->ndims, dimids, &var->id);
+        CHECK_NC_ERROR(path, status);
+
+        def_atts(path, ncid, var->id, var->atts);
+
+        var = var->next;
+    }
+
+    def_atts(path, ncid, NC_GLOBAL, sds->gatts);
+
+    sds->path = xstrdup(path);
+#if HAVE_NETCDF4
+    sds->type = SDS_NC4_FILE;
+#else
+    sds->type = SDS_NC3_FILE;
+#endif
+    sds->id = ncid;
+    sds->funcs = &nc_funcs;
 }
