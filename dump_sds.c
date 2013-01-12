@@ -159,6 +159,8 @@ int main(int argc, char **argv)
         for (int i = 0; i < var->ndims; i++) {
             printf("[%s]", var->dims[i]->name);
         }
+        if (var->iscoord)
+            fputs(" (coordinate)", stdout);
         print_atts(var->atts);
 
         var = var->next;
