@@ -282,6 +282,16 @@ size_t sds_type_size(SDSType t)
     return 0;
 }
 
+SDSAttInfo *sds_att_by_name(SDSAttInfo *att, const char *name)
+{
+    while (att) {
+        if (!strcmp(name, att->name))
+            break;
+        att = att->next;
+    }
+    return att;
+}
+
 SDSDimInfo *sds_dim_by_name(SDSDimInfo *dim, const char *name)
 {
     while (dim) {
@@ -308,6 +318,18 @@ SDSVarInfo *sds_var_by_name(SDSVarInfo *var, const char *name)
 size_t sds_var_size(SDSVarInfo *var)
 {
     size_t size = sds_type_size(var->type);
+    for (int i = 0; i < var->ndims; i++) {
+        size *= var->dims[i]->size;
+    }
+    return size;
+}
+
+/* Calculates the total number of elements for this variable by
+ * multiplying the dimensions together.
+ */
+size_t sds_var_count(SDSVarInfo *var)
+{
+    size_t size = 1;
     for (int i = 0; i < var->ndims; i++) {
         size *= var->dims[i]->size;
     }

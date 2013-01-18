@@ -150,7 +150,9 @@ SDSVarInfo *sds_vars_generic_copy(SDSVarInfo *var, SDSDimInfo *newdims);
 
 size_t sds_type_size(SDSType t);
 size_t sds_var_size(SDSVarInfo *var);
+size_t sds_var_count(SDSVarInfo *var);
 
+SDSAttInfo *sds_att_by_name(SDSAttInfo *atts, const char *name);
 SDSDimInfo *sds_dim_by_name(SDSDimInfo *dims, const char *name);
 SDSVarInfo *sds_var_by_name(SDSVarInfo *vars, const char *name);
 
