@@ -511,6 +511,8 @@ void write_as_nc_sds(const char *path, SDSInfo *sds)
 
     def_atts(path, ncid, NC_GLOBAL, sds->gatts);
 
+    nc_enddef(ncid);
+
     sds->path = xstrdup(path);
 #if HAVE_NETCDF4
     sds->type = SDS_NC4_FILE;
