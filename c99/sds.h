@@ -125,6 +125,11 @@ void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf);
 // close any open SDS file
 void sds_close(SDSInfo *sds);
 
+// free lists of various things
+void sds_free_atts(SDSAttInfo *atts);
+void sds_free_dims(SDSDimInfo *dims);
+void sds_free_vars(SDSVarInfo *vars);
+
 // Creating new SDS structures from scratch
 SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars);
 

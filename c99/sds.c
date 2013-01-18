@@ -423,36 +423,36 @@ void sds_buffer_free(void *buf)
     (gb->free_func)(buf);
 }
 
-static void free_atts(SDSAttInfo *att)
+void sds_free_atts(SDSAttInfo *att)
 {
     if (att) {
         SDSAttInfo *next = att->next;
         free(att->name);
         free(att->data.v);
         free(att);
-        free_atts(next);
+        sds_free_atts(next);
     }
 }
 
-static void free_dims(SDSDimInfo *dim)
+void sds_free_dims(SDSDimInfo *dim)
 {
     if (dim) {
         SDSDimInfo *next = dim->next;
         free(dim->name);
         free(dim);
-        free_dims(next);
+        sds_free_dims(next);
     }
 }
 
-static void free_vars(SDSVarInfo *var)
+void sds_free_vars(SDSVarInfo *var)
 {
     if (var) {
         SDSVarInfo *next = var->next;
         free(var->name);
-        free_atts(var->atts);
+        sds_free_atts(var->atts);
         free(var->dims);
         free(var);
-        free_vars(next);
+        sds_free_vars(next);
     }
 }
 
@@ -461,9 +461,9 @@ void sds_close(SDSInfo *sds)
     if (sds->funcs)
         sds->funcs->close(sds);
 
-    free_atts(sds->gatts);
-    free_dims(sds->dims);
-    free_vars(sds->vars);
+    sds_free_atts(sds->gatts);
+    sds_free_dims(sds->dims);
+    sds_free_vars(sds->vars);
 
     free(sds->path);
     free(sds);
