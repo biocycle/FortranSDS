@@ -5,6 +5,7 @@
 #include "util.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <netcdf.h>
 
@@ -12,8 +13,8 @@ static void netcdf_error(const char *filename, int status,
                          const char *sourcefile, int lineno)
 {
     fprintf(stderr, "%s:%i: ", sourcefile, lineno);
-    fprintf(stderr, "Error reading %s: %s\n", filename, nc_strerror(status));
-    exit(2);
+    fprintf(stderr, "Error in %s: %s\n", filename, nc_strerror(status));
+    abort();
 }
 
 #define CHECK_NC_ERROR(filename,status) \
@@ -137,31 +138,38 @@ static void var_writev(SDSInfo *sds, SDSVarInfo *var, void *data, int *index)
 
 #if HAVE_NETCDF4
     status = nc_put_vars(sds->id, var->id, start, count, NULL, data);
+    CHECK_NC_ERROR(sds->path, status);
 #else
     switch (var->type) {
     case SDS_I8:
         status = nc_put_vars_uchar(sds->id, var->id, start, count, NULL,
                                    (unsigned char*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_I16:
         status = nc_put_vars_short(sds->id, var->id, start, count, NULL,
                                    (short*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_I32:
         status = nc_put_vars_int(sds->id, var->id, start, count, NULL,
                                  (int*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_FLOAT:
         status = nc_put_vars_float(sds->id, var->id, start, count, NULL,
                                    (float*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_DOUBLE:
         status = nc_put_vars_double(sds->id, var->id, start, count, NULL,
                                     (double*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_STRING:
         status = nc_put_vars_text(sds->id, var->id, start, count, NULL,
                                   (char*)data);
+        CHECK_NC_ERROR(sds->path, status);
         break;
     case SDS_NO_TYPE:
     default:
@@ -172,7 +180,6 @@ static void var_writev(SDSInfo *sds, SDSVarInfo *var, void *data, int *index)
         break;
     }
 #endif
-    CHECK_NC_ERROR(sds->path, status);
 }
 
 static void close_nc(SDSInfo *sds)
