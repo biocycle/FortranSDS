@@ -498,8 +498,9 @@ void write_as_nc_sds(const char *path, SDSInfo *sds)
     SDSVarInfo *var = sds->vars;
     while (var) {
         int i, dimids[NC_MAX_VAR_DIMS];
-        for (i = 0; i < var->ndims; i++)
+        for (i = 0; i < var->ndims; i++) {
             dimids[i] = var->dims[i]->id;
+        }
         status = nc_def_var(ncid, var->name, sds_to_nc_type(var->type), var->ndims, dimids, &var->id);
         CHECK_NC_ERROR(path, status);
 

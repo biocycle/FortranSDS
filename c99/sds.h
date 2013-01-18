@@ -144,12 +144,15 @@ SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
 
 // Copy an existing SDS structure to write a modified version thereof
 SDSInfo *sds_generic_copy(SDSInfo *sds);
+SDSAttInfo *sds_atts_generic_copy(SDSAttInfo *att);
+SDSDimInfo *sds_dims_generic_copy(SDSDimInfo *dim);
+SDSVarInfo *sds_vars_generic_copy(SDSVarInfo *var, SDSDimInfo *newdims);
 
 size_t sds_type_size(SDSType t);
 size_t sds_var_size(SDSVarInfo *var);
 
-SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name);
-SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name);
+SDSDimInfo *sds_dim_by_name(SDSDimInfo *dims, const char *name);
+SDSVarInfo *sds_var_by_name(SDSVarInfo *vars, const char *name);
 
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);

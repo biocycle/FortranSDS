@@ -4,25 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static SDSAttInfo *atts_generic_copy(SDSAttInfo *att)
-{
-    SDSAttInfo *next = (att->next == NULL) ? NULL : atts_generic_copy(att->next);
-    return sds_create_att(next, att->name, att->type, att->count, att->data.v);
-}
-
-static SDSDimInfo *dims_generic_copy(SDSDimInfo *dim)
-{
-    SDSDimInfo *next = (dim->next == NULL) ? NULL : dims_generic_copy(dim->next);
-    return sds_create_dim(next, dim->name, dim->size, dim->isunlim);
-}
-
-static SDSVarInfo *vars_generic_copy(SDSVarInfo *var)
-{
-    SDSVarInfo *next = (var->next == NULL) ? NULL : vars_generic_copy(var->next);
-    return sds_create_var(next, var->name, var->type, var->iscoord, var->atts,
-                          var->ndims, var->dims);
-}
-
 /* Copies an SDSInfo struct, its attributes, dimensions and variables. The copy
  * is deep and typeless (i.e. not tied to  NetCDF, HDF, etc.), so a new SDS
  * file of any type can be created from it.
@@ -32,9 +13,55 @@ static SDSVarInfo *vars_generic_copy(SDSVarInfo *var)
  */
 SDSInfo *sds_generic_copy(SDSInfo *sds)
 {
-    return create_sds(atts_generic_copy(sds->gatts),
-                      dims_generic_copy(sds->dims),
-                      vars_generic_copy(sds->vars));
+    SDSAttInfo *gatts = sds_atts_generic_copy(sds->gatts);
+    SDSDimInfo *dims = sds_dims_generic_copy(sds->dims);
+    return create_sds(gatts, dims,
+                      sds_vars_generic_copy(sds->vars, dims));
+}
+
+/* Copies a list of attributes, usually useful for converting from one
+ * SDS format to another.
+ */
+SDSAttInfo *sds_atts_generic_copy(SDSAttInfo *att)
+{
+    SDSAttInfo *next = (att->next == NULL) ? NULL : sds_atts_generic_copy(att->next);
+    return sds_create_att(next, att->name, att->type, att->count, att->data.v);
+}
+
+/* Copies a list of dimensions, usually useful for converting from one
+ * SDS format to another.
+ */
+SDSDimInfo *sds_dims_generic_copy(SDSDimInfo *dim)
+{
+    SDSDimInfo *next = (dim->next == NULL) ? NULL : sds_dims_generic_copy(dim->next);
+    return sds_create_dim(next, dim->name, dim->size, dim->isunlim);
+}
+
+/* Copies a list of variables, usually useful for converting from one SDS
+ * format to another.
+ *
+ * newdims - the dimension list for the same SDSInfo that this variable
+ *           list will belong to.  The original dimensions are matched by
+ *           name to the corresponding dimensions in the new list.  If
+ *           the dimension name is not found, an error will be printed
+ *           to the screen and your program will crash.
+ */
+SDSVarInfo *sds_vars_generic_copy(SDSVarInfo *var, SDSDimInfo *newdims)
+{
+    SDSVarInfo *next = (var->next == NULL) ? NULL : sds_vars_generic_copy(var->next, newdims);
+    // match up var->dims to those in newdims
+    SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * var->ndims);
+    for (int i = 0; i < var->ndims; i++) {
+        dims[i] = sds_dim_by_name(newdims, var->dims[i]->name);
+        if (!dims[i]) {
+            fprintf(stderr, "could not find new dimension named '%s' when copying var '%s'\n",
+                    var->dims[i]->name, var->name);
+            abort();
+        }
+    }
+    return sds_create_var(next, var->name, var->type, var->iscoord,
+                          sds_atts_generic_copy(var->atts),
+                          var->ndims, dims);
 }
 
 /* Create a new SDSInfo with the given global attributes, dimensions and
@@ -255,9 +282,8 @@ size_t sds_type_size(SDSType t)
     return 0;
 }
 
-SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name)
+SDSDimInfo *sds_dim_by_name(SDSDimInfo *dim, const char *name)
 {
-    SDSDimInfo *dim = sds->dims;
     while (dim) {
         if (!strcmp(name, dim->name))
             break;
@@ -266,9 +292,8 @@ SDSDimInfo *sds_dim_by_name(SDSInfo *sds, const char *name)
     return dim;
 }
 
-SDSVarInfo *sds_var_by_name(SDSInfo *sds, const char *name)
+SDSVarInfo *sds_var_by_name(SDSVarInfo *var, const char *name)
 {
-    SDSVarInfo *var = sds->vars;
     while (var) {
         if (!strcmp(name, var->name))
             break;
@@ -298,7 +323,7 @@ size_t sds_var_size(SDSVarInfo *var)
  */
 void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
 {
-    SDSVarInfo *var = sds_var_by_name(sds, name);
+    SDSVarInfo *var = sds_var_by_name(sds->vars, name);
     if (!var)
         return NULL;
     return sds_read(sds, var, bufp);
