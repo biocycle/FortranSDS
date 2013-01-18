@@ -113,8 +113,8 @@ SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
     att->type = type;
     att->count = count;
     att->bytes = sds_type_size(type);
-    att->data.v = malloc(sds_type_size(type) * count);
-    memcpy(att->data.v, data, sds_type_size(type) * count);
+    att->data.v = malloc(att->bytes * count);
+    memcpy(att->data.v, data, att->bytes * count);
     return att;
 }
 
@@ -275,7 +275,7 @@ size_t sds_type_size(SDSType t)
     case SDS_U32:
     case SDS_FLOAT:  return 4;
     case SDS_DOUBLE: return 8;
-    case SDS_STRING: return 0;
+    case SDS_STRING: return 1;
     default: break;
     }
     abort();
