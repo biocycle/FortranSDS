@@ -13,10 +13,13 @@
  */
 SDSInfo *sds_generic_copy(SDSInfo *sds)
 {
-    SDSAttInfo *gatts = sds_atts_generic_copy(sds->gatts);
-    SDSDimInfo *dims = sds_dims_generic_copy(sds->dims);
-    return create_sds(gatts, dims,
-                      sds_vars_generic_copy(sds->vars, dims));
+    SDSAttInfo *gatts = (sds->gatts == NULL) ? NULL :
+        sds_atts_generic_copy(sds->gatts);
+    SDSDimInfo *dims = (sds->dims == NULL) ? NULL :
+        sds_dims_generic_copy(sds->dims);
+    SDSVarInfo *vars = (sds->vars == NULL) ? NULL :
+        sds_vars_generic_copy(sds->vars, dims);
+    return create_sds(gatts, dims, vars);
 }
 
 /* Copies a list of attributes, usually useful for converting from one
