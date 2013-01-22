@@ -59,9 +59,9 @@ SDSVarInfo *sds_vars_generic_copy(SDSVarInfo *var, SDSDimInfo *newdims)
             abort();
         }
     }
+    SDSAttInfo *atts = (var->atts == NULL) ? NULL : sds_atts_generic_copy(var->atts);
     return sds_create_var(next, var->name, var->type, var->iscoord,
-                          sds_atts_generic_copy(var->atts),
-                          var->ndims, dims);
+                          atts, var->ndims, dims);
 }
 
 /* Create a new SDSInfo with the given global attributes, dimensions and
