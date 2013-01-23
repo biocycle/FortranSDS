@@ -315,6 +315,125 @@ SDSVarInfo *sds_var_by_name(SDSVarInfo *var, const char *name)
     return var;
 }
 
+static int name_in_list(const char *name, const char **names, int n_names)
+{
+    for (int i = 0; i < n_names; i++) {
+        if (!strcmp(names[i], name)) {
+            return 1; // found
+        }
+    }
+    return 0; // not found
+}
+
+
+SDSAttInfo *sds_keep_atts(SDSAttInfo *att, const char **names, int n_names)
+{
+    SDSAttInfo *keep = NULL, *del = NULL;
+    while (att) {
+        SDSAttInfo *next = att->next;
+        if (name_in_list(att->name, names, n_names)) {
+            att->next = keep;
+            keep = att;
+        } else {
+            att->next = del;
+            del = att;
+        }
+        att = next;
+    }
+    sds_free_atts(del);
+    return keep;
+}
+
+SDSDimInfo *sds_keep_dims(SDSDimInfo *dim, const char **names, int n_names)
+{
+    SDSDimInfo *keep = NULL, *del = NULL;
+    while (dim) {
+        SDSDimInfo *next = dim->next;
+        if (name_in_list(dim->name, names, n_names)) {
+            dim->next = keep;
+            keep = dim;
+        } else {
+            dim->next = del;
+            del = dim;
+        }
+        dim = next;
+    }
+    sds_free_dims(del);
+    return keep;
+}
+
+SDSVarInfo *sds_keep_vars(SDSVarInfo *var, const char **names, int n_names)
+{
+    SDSVarInfo *keep = NULL, *del = NULL;
+    while (var) {
+        SDSVarInfo *next = var->next;
+        if (name_in_list(var->name, names, n_names)) {
+            var->next = keep;
+            keep = var;
+        } else {
+            var->next = del;
+            del = var;
+        }
+        var = next;
+    }
+    sds_free_vars(del);
+    return keep;
+}
+
+SDSAttInfo *sds_delete_atts(SDSAttInfo *att, const char **names, int n_names)
+{
+    SDSAttInfo *keep = NULL, *del = NULL;
+    while (att) {
+        SDSAttInfo *next = att->next;
+        if (name_in_list(att->name, names, n_names)) {
+            att->next = del;
+            del = att;
+        } else {
+            att->next = keep;
+            keep = att;
+        }
+        att = next;
+    }
+    sds_free_atts(del);
+    return keep;
+}
+
+SDSDimInfo *sds_delete_dims(SDSDimInfo *dim, const char **names, int n_names)
+{
+    SDSDimInfo *keep = NULL, *del = NULL;
+    while (dim) {
+        SDSDimInfo *next = dim->next;
+        if (name_in_list(dim->name, names, n_names)) {
+            dim->next = del;
+            del = dim;
+        } else {
+            dim->next = keep;
+            keep = dim;
+        }
+        dim = next;
+    }
+    sds_free_dims(del);
+    return keep;
+}
+
+SDSVarInfo *sds_delete_vars(SDSVarInfo *var, const char **names, int n_names)
+{
+    SDSVarInfo *keep = NULL, *del = NULL;
+    while (var) {
+        SDSVarInfo *next = var->next;
+        if (name_in_list(var->name, names, n_names)) {
+            var->next = del;
+            del = var;
+        } else {
+            var->next = keep;
+            keep = var;
+        }
+        var = next;
+    }
+    sds_free_vars(del);
+    return keep;
+}
+
 /* Calculates the number of bytes required for the variable's entire data
  * by multiplying the dimensions together.
  */

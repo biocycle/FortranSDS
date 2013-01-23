@@ -161,6 +161,14 @@ SDSAttInfo *sds_att_by_name(SDSAttInfo *atts, const char *name);
 SDSDimInfo *sds_dim_by_name(SDSDimInfo *dims, const char *name);
 SDSVarInfo *sds_var_by_name(SDSVarInfo *vars, const char *name);
 
+SDSAttInfo *sds_keep_atts(SDSAttInfo *atts, const char **names, int n_names);
+SDSDimInfo *sds_keep_dims(SDSDimInfo *dims, const char **names, int n_names);
+SDSVarInfo *sds_keep_vars(SDSVarInfo *vars, const char **names, int n_names);
+
+SDSAttInfo *sds_delete_atts(SDSAttInfo *atts, const char **names, int n_names);
+SDSDimInfo *sds_delete_dims(SDSDimInfo *dims, const char **names, int n_names);
+SDSVarInfo *sds_delete_vars(SDSVarInfo *vars, const char **names, int n_names);
+
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);
 
