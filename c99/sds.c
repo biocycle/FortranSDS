@@ -501,6 +501,11 @@ void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf)
     (sds->funcs->var_writev)(sds, var, buf, index);
 }
 
+void sds_writev(SDSInfo *sds, SDSVarInfo *var, void *buf, int *idx)
+{
+    (sds->funcs->var_writev)(sds, var, buf, idx);
+}
+
 /* Read all of one timestep (i.e. the first dimension) from the given variable.
  * Returns a pointer to malloc()'d data managed by bufp.
  * bufp: an opaque pointer to a buffer structure used to manage memory to be

@@ -121,6 +121,7 @@ void sds_buffer_free(void *buf);
 
 // write variable data
 void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf);
+void sds_writev(SDSInfo *sds, SDSVarInfo *var, void *buf, int *idx);
 
 // close any open SDS file
 void sds_close(SDSInfo *sds);
