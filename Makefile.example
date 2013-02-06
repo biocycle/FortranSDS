@@ -74,8 +74,11 @@ C99_OBJS = \
 	c99/sds_sort.o \
 	c99/util.o \
 	c99/sds.o \
-	c99/sds_nc.o \
-	c99/sds_hdf4.o
+	c99/sds_nc.o
+
+ifeq ($(H4),true)
+	C99_OBJS += c99/sds_hdf4.o
+endif
 
 NC2CODE_OBJS = \
 	nc2code/nc2code.o \
