@@ -5,10 +5,13 @@
 #include <stdlib.h>
 
 // multi-dimensional array indexing mapped onto 1-d array
-#define SDS_IDX2D(lat,lon, nlon) (lon + nlon * lat)
-#define SDS_IDX3D(lev,lat,lon, nlat,nlon) (lon + nlon * (lat + lev * nlat))
-#define SDS_IDX4D(time,lev,lat,lon, nlev,nlat,nlon) \
-    (lon + nlon * (lat + nlat * (lev + time * nlev)))
+// use like:
+//     float *var = ...;
+//     ... = var[SDS_IDX2D(lat, lon, nlon)];
+#define SDS_IDX2D(fst,snd, nsnd) (fst * nsnd + snd)
+#define SDS_IDX3D(fst,snd,thrd, nsnd,nthrd) ((fst * nsnd + snd) * nthrd + thrd)
+#define SDS_IDX4D(fst,snd,thrd,frth, nsnd,nthrd,nfrth) \
+    (((fst * nsnd + snd) * nthrd + thrd) * nfrth + frth)
 
 typedef enum {
     SDS_UNKNOWN_FILE,
