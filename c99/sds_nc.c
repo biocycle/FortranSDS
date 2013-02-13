@@ -256,6 +256,18 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
 #ifdef HAVE_NETCDF4
         status = nc_inq_type(ncid, type, NULL, &bytes);
         CHECK_NC_ERROR(path, status);
+
+        switch (type) {
+        case NC_STRING:
+            // override to equivalent type for easier processing below
+            type = NC_CHAR;
+            // fall through
+        case NC_CHAR:
+            count++;
+            break;
+        default:
+            break;
+        }
 #else
         switch (type) {
         case NC_NAT:    bytes = 0; break;
