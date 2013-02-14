@@ -59,7 +59,7 @@ else
 	LDFLAGS += -lnetcdf
 endif
 
-H5_ROOT = /usr/local/hdf5-$PFX
+H5_ROOT = /usr/local/hdf5-$(PFX)
 ifeq ($(need_h5),true)
 	CFLAGS += -I$(H5_ROOT)/include -DHAVE_HDF5
 	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
