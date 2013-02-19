@@ -102,7 +102,8 @@ NC2CODE_OBJS = \
 .f90.o:
 	$(F90) $(FFLAGS) -c $< -o $@
 
-all: test c99/libsimplesds.a nc2code/nc2code doc
+all: test lib nc2code/nc2code doc
+lib: c99/libsimplesds.a
 
 simple_netcdf.F90: simple_netcdf.F90.erb
 	tools/ferb $< >$@
