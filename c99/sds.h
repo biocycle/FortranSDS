@@ -8,10 +8,9 @@
 // use like:
 //     float *var = ...;
 //     ... = var[SDS_IDX2D(lat, lon, nlon)];
-#define SDS_IDX2D(fst,snd, nsnd) (fst * nsnd + snd)
-#define SDS_IDX3D(fst,snd,thrd, nsnd,nthrd) ((fst * nsnd + snd) * nthrd + thrd)
-#define SDS_IDX4D(fst,snd,thrd,frth, nsnd,nthrd,nfrth) \
-    (((fst * nsnd + snd) * nthrd + thrd) * nfrth + frth)
+#define SDS_IDX2D(i,j, nj) (i * nj + j)
+#define SDS_IDX3D(i,j,k, nj,nk) ((i * nj + j) * nk + k)
+#define SDS_IDX4D(i,j,k,l, nj,nk,nl) (((i * nj + j) * nk + k) * nl + l)
 
 typedef enum {
     SDS_UNKNOWN_FILE,
