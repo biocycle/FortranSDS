@@ -107,7 +107,7 @@ static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
         bufsize *= (size_t)count[i];
     }
 
-    H4Buffer *buf = prep_read_buffer(sds, var, bufp);
+    H4Buffer *buf = prep_read_buffer(var, bufp);
     h4buffer_ensure(buf, bufsize);
 
     int status = SDreaddata(buf->sds_id, start, NULL, count, buf->data);
