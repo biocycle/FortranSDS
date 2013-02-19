@@ -508,7 +508,8 @@ void write_as_nc_sds(const char *path, SDSInfo *sds)
 
     int status, ncid, flags = 0;
 #if HAVE_NETCDF4
-    flags = NC_NETCDF4;
+    if (sds->type == SDS_NC4_FILE)
+        flags = NC_NETCDF4;
 #endif
     status = nc_create(path, flags, &ncid);
     CHECK_NC_ERROR(path, status);
