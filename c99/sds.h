@@ -77,6 +77,7 @@ typedef struct SDSVarInfo {
     struct SDSVarInfo *next;
     char *name;
     SDSType type;
+    int compress; // 0 - no compression; 1 - lowest, 9 - best compression
     int iscoord; // coordinate variable?
     int ndims;
     SDSDimInfo **dims;

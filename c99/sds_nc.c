@@ -437,6 +437,11 @@ SDSInfo *open_nc_sds(const char *path)
         vi->dims = NEWA(SDSDimInfo *, ndims);
         map_dimids(vi, dimids, sds->dims);
 
+#if HAVE_NETCDF4
+        status = nc_inq_var_deflate(ncid, ids[i], NULL, NULL, &vi->compress);
+        CHECK_NC_ERROR(path, status);
+#endif
+
         vi->atts = read_attributes(path, ncid, ids[i], natts);
 
         vi->sds = sds;
@@ -530,6 +535,17 @@ void write_as_nc_sds(const char *path, SDSInfo *sds)
         }
         status = nc_def_var(ncid, var->name, sds_to_nc_type(var->type), var->ndims, dimids, &var->id);
         CHECK_NC_ERROR(path, status);
+
+ #if HAVE_NETCDF4
+       if (var->compress > 0) {
+            int level = var->compress;
+            if (level > 9) level = 9;
+            // note: shuffle filter changes byte order and is mainly meant
+            // for integer data.  Probably not very useful, so off for now.
+            status = nc_def_var_deflate(ncid, var->id, 0, 1, level);
+            CHECK_NC_ERROR(path, status);
+        }
+#endif
 
         def_atts(path, ncid, var->id, var->atts);
 

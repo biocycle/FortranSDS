@@ -333,6 +333,24 @@ SDSInfo *open_h4_sds(const char *path)
         var->atts = read_attributes(path, sds_id, natts);
         var->id = i; // actually the sds_index
 
+        comp_coder_t comp_type;
+        comp_info c_info;
+        status = SDgetcompinfo(sds_id, &comp_type, &c_info);
+        CHECK_HDF_ERROR(path, status);
+        switch (comp_type) {
+        case COMP_CODE_NONE:
+            var->compress = 0;
+            break;
+        case COMP_CODE_DEFLATE:
+            var->compress = c_info.deflate.level;
+            break;
+        default:
+            // any other compression method is 'worth' 1 imo *trollface*
+            // better than claiming 0 to the user
+            var->compress = 1;
+            break;
+        }
+
         var->sds = sds;
 
         var->next = sds->vars;
