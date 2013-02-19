@@ -94,6 +94,11 @@ SDSInfo *create_sds(SDSAttInfo *gatts, SDSDimInfo *dims, SDSVarInfo *vars)
     }
     sds->unlimdim = unlim;
 
+    while (vars) {
+        vars->sds = sds;
+        vars = vars->next;
+    }
+
     sds->id = -1;
     sds->funcs = NULL;
     return sds;
@@ -470,7 +475,7 @@ void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
     SDSVarInfo *var = sds_var_by_name(sds->vars, name);
     if (!var)
         return NULL;
-    return sds_read(sds, var, bufp);
+    return sds_read(var, bufp);
 }
 
 /* Reads all of the given variable.
@@ -480,30 +485,30 @@ void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
  *       in that same void-pointer-pointer to re-use the buffer.  When you are
  *       done with the buffer, use sds_buffer_free to free it from memory.
  */
-void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp)
+void *sds_read(SDSVarInfo *var, void **bufp)
 {
     int *index = ALLOCA(int, var->ndims);
     for (int i = 0; i < var->ndims; i++) {
         index[i] = -1; // read all of this dimension
     }
-    return (sds->funcs->var_readv)(sds, var, bufp, index);
+    return (var->sds->funcs->var_readv)(var, bufp, index);
 }
 
 /* Writes all of a given variable.
  * buf: a pointer to the raw data.
  */
-void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf)
+void sds_write(SDSVarInfo *var, void *buf)
 {
     int *index = ALLOCA(int, var->ndims);
     for (int i = 0; i < var->ndims; i++) {
         index[i] = -1; // read all of this dimension
     }
-    (sds->funcs->var_writev)(sds, var, buf, index);
+    (var->sds->funcs->var_writev)(var, buf, index);
 }
 
-void sds_writev(SDSInfo *sds, SDSVarInfo *var, void *buf, int *idx)
+void sds_writev(SDSVarInfo *var, void *buf, int *idx)
 {
-    (sds->funcs->var_writev)(sds, var, buf, idx);
+    (var->sds->funcs->var_writev)(var, buf, idx);
 }
 
 /* Read all of one timestep (i.e. the first dimension) from the given variable.
@@ -514,14 +519,14 @@ void sds_writev(SDSInfo *sds, SDSVarInfo *var, void *buf, int *idx)
  *       in that same void-pointer-pointer to re-use the buffer.  When you are
  *       done with the buffer, use sds_buffer_free to free it from memory.
  */
-void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **bufp, int tstep)
+void *sds_timestep(SDSVarInfo *var, void **bufp, int tstep)
 {
     int *index = ALLOCA(int, var->ndims);
     index[0] = tstep;
     for (int i = 1; i < var->ndims; i++) {
         index[i] = -1; // read all of this dimension
     }
-    return (sds->funcs->var_readv)(sds, var, bufp, index);
+    return (var->sds->funcs->var_readv)(var, bufp, index);
 }
 
 /* Read from the given variable, subsetting based on the index array.
@@ -535,9 +540,9 @@ void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **bufp, int tstep)
  *        corresponding dimension will be read.  Otherwise, the whole length
  *        of that dimension will be read.
  */
-void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
+void *sds_readv(SDSVarInfo *var, void **bufp, int *index)
 {
-    return (sds->funcs->var_readv)(sds, var, bufp, index);
+    return (var->sds->funcs->var_readv)(var, bufp, index);
 }
 
 struct GenericBuffer {

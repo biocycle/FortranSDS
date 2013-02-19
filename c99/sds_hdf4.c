@@ -68,13 +68,13 @@ static void h4buffer_ensure(H4Buffer *buf, size_t cap_needed)
     }
 }
 
-static H4Buffer *prep_read_buffer(SDSInfo *sds, SDSVarInfo *var, void **bufp)
+static H4Buffer *prep_read_buffer(SDSVarInfo *var, void **bufp)
 {
     H4Buffer *buf = (H4Buffer *)*bufp;
     if (buf) {
         assert(buf->free == (void (*)(void *))h4buffer_free);
     } else {
-        *((H4Buffer **)bufp) = buf = h4buffer_create(sds);
+        *((H4Buffer **)bufp) = buf = h4buffer_create(var->sds);
     }
 
     if (buf->sds_index != var->id) {
@@ -84,15 +84,15 @@ static H4Buffer *prep_read_buffer(SDSInfo *sds, SDSVarInfo *var, void **bufp)
         }
 
         // open this var
-        buf->sds_id = SDselect(sds->id, var->id);
-        CHECK_HDF_ERROR(sds->path, buf->sds_id);
+        buf->sds_id = SDselect(var->sds->id, var->id);
+        CHECK_HDF_ERROR(var->sds->path, buf->sds_id);
         buf->sds_index = var->id;
     }
 
     return buf;
 }
 
-static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
+static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
 {
     int32 start[H4_MAX_VAR_DIMS], count[H4_MAX_VAR_DIMS];
     size_t bufsize = sds_type_size(var->type);
@@ -111,12 +111,12 @@ static void *var_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *index)
     h4buffer_ensure(buf, bufsize);
 
     int status = SDreaddata(buf->sds_id, start, NULL, count, buf->data);
-    CHECK_HDF_ERROR(sds->path, status);
+    CHECK_HDF_ERROR(var->sds->path, status);
 
     return buf->data;
 }
 
-static void var_writev(SDSInfo *sds, SDSVarInfo *var, void *data, int *index)
+static void var_writev(SDSVarInfo *var, void *data, int *index)
 {
 	fprintf(stderr, "hdf4 variable writing not implemented yet!\n");
 	abort();
@@ -332,6 +332,8 @@ SDSInfo *open_h4_sds(const char *path)
         var->dims = read_dimensions(sds, sds_id, rank, dim_sizes);
         var->atts = read_attributes(path, sds_id, natts);
         var->id = i; // actually the sds_index
+
+        var->sds = sds;
 
         var->next = sds->vars;
         sds->vars = var;

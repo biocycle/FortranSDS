@@ -71,6 +71,8 @@ typedef struct SDSDimInfo {
     int id; /* private */
 } SDSDimInfo;
 
+typedef struct SDSInfo SDSInfo;
+
 typedef struct SDSVarInfo {
     struct SDSVarInfo *next;
     char *name;
@@ -80,9 +82,10 @@ typedef struct SDSVarInfo {
     SDSDimInfo **dims;
     SDSAttInfo *atts;
     int id; /* private */
+    SDSInfo *sds; /* private */
 } SDSVarInfo;
 
-typedef struct {
+struct SDSInfo {
     char *path;
     SDSFileType type;
     SDSAttInfo *gatts;
@@ -94,11 +97,11 @@ typedef struct {
     // private
     int id;
     struct SDS_Funcs *funcs;
-} SDSInfo;
+};
 
 struct SDS_Funcs {
-    void *(*var_readv)(SDSInfo *, SDSVarInfo *, void **, int *);
-    void (*var_writev)(SDSInfo *, SDSVarInfo *, void *, int *);
+    void *(*var_readv)(SDSVarInfo *, void **, int *);
+    void (*var_writev)(SDSVarInfo *, void *, int *);
     void (*close)(SDSInfo *);
 };
 
@@ -115,15 +118,15 @@ void write_as_nc_sds(const char *path, SDSInfo *sds);
 // read variable data
 void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp);
 
-void *sds_read(SDSInfo *sds, SDSVarInfo *var, void **bufp);
-void *sds_timestep(SDSInfo *sds, SDSVarInfo *var, void **buf, int tstep);
-void *sds_readv(SDSInfo *sds, SDSVarInfo *var, void **bufp, int *idx);
+void *sds_read(SDSVarInfo *var, void **bufp);
+void *sds_timestep(SDSVarInfo *var, void **buf, int tstep);
+void *sds_readv(SDSVarInfo *var, void **bufp, int *idx);
 
 void sds_buffer_free(void *buf);
 
 // write variable data
-void sds_write(SDSInfo *sds, SDSVarInfo *var, void *buf);
-void sds_writev(SDSInfo *sds, SDSVarInfo *var, void *buf, int *idx);
+void sds_write(SDSVarInfo *var, void *buf);
+void sds_writev(SDSVarInfo *var, void *buf, int *idx);
 
 // close any open SDS file
 void sds_close(SDSInfo *sds);
