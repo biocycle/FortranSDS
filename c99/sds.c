@@ -222,16 +222,16 @@ static int sds_magic(const char *path)
     } else if (buf[0] == 137 && buf[1] == 'H' && buf[2] == 'D' && buf[3] == 'F') {
         if (fread(buf, 1, sizeof(buf), fin) < sizeof(buf))
             goto done;
-        if (buf[0] != '\r' || buf[1] != '\n' || buf[2] != ' ' || buf[3] != '\n')
+        if (buf[0] != 0xD || buf[1] != 0xA || buf[2] != 0x1A || buf[3] != 0xA)
             goto done;
         size_t len = strlen(path);
-        if (!strcmp(path+len-4, ".hdf") ||
-            !strcmp(path+len-3, ".h5") ||
-            !strcmp(path+len-5, ".hdf5") ||
-            !strcmp(path+len-4, ".he5"))
-            ret = 5; // just an HDF5 file 'cuz extension sez so
+        if (!strcmp(path+len-, ".nc") ||
+            !strcmp(path+len-, ".nc4") ||
+            !strcmp(path+len-, ".netcdf") ||
+            !strcmp(path+len-, ".cdf"))
+            ret = 4; // NetCDF v.4 using HDF5 file format 'cuz extension sez so
         else
-            ret = 4; // assume NetCDF v.4 using HDF5 file format
+            ret = 5; // just an HDF5 file
     }
  done:
     fclose(fin);
