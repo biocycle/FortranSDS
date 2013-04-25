@@ -264,15 +264,22 @@ SDSInfo *open_any_sds(const char *path)
 {
     switch (sds_file_type(path)) {
 
-    case SDS_NC3_FILE:
-#ifdef HAVE_NETCDF4
     case SDS_NC4_FILE:
+#ifndef HAVE_NETCDF4
+        fprintf(stderr, "not compiled with NetCDF4 support (%s)\n",
+                path);
+        return NULL;
 #endif
+    case SDS_NC3_FILE:
         return open_nc_sds(path);
 
-#ifdef HAVE_HDF4
     case SDS_HDF4_FILE:
+#ifdef HAVE_HDF4
         return open_h4_sds(path);
+#else
+        fprintf(stderr, "not compiled with HDF4 support (%s)\n",
+                path);
+        return NULL;
 #endif
 
     default:
