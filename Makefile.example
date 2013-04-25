@@ -114,8 +114,8 @@ c99/libsimplesds.a: $(C99_OBJS)
 nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(C_LDFLAGS)
 
-dump_sds: c99/libsimplesds.a dump_sds.o
-	$(CC) -o $@ dump_sds.o -lsimplesds $(C_LDFLAGS)
+sds-dump: c99/libsimplesds.a sds-dump.o
+	$(CC) -o $@ sds-dump.o -lsimplesds $(C_LDFLAGS)
 
 doc: doc/simple_netcdf.html
 
