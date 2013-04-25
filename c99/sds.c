@@ -225,10 +225,10 @@ static int sds_magic(const char *path)
         if (buf[0] != 0xD || buf[1] != 0xA || buf[2] != 0x1A || buf[3] != 0xA)
             goto done;
         size_t len = strlen(path);
-        if (!strcmp(path+len-, ".nc") ||
-            !strcmp(path+len-, ".nc4") ||
-            !strcmp(path+len-, ".netcdf") ||
-            !strcmp(path+len-, ".cdf"))
+        if (!strcmp(path+len-3, ".nc") ||
+            !strcmp(path+len-4, ".nc4") ||
+            !strcmp(path+len-7, ".netcdf") ||
+            !strcmp(path+len-4, ".cdf"))
             ret = 4; // NetCDF v.4 using HDF5 file format 'cuz extension sez so
         else
             ret = 5; // just an HDF5 file
