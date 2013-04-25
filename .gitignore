@@ -1,7 +1,7 @@
 *.o
 *.mod
 *.a
-dump_sds
+sds-dump
 test/lowlevel_nc
 test/snc_no_file_line
 test/snc_with_file_line

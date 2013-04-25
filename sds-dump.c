@@ -1,109 +1,131 @@
+/* sds-dump.c - prints human- and script-readable parts of supported SDS files.
+ */
 #include "c99/sds.h"
 #include "c99/util.h"
 
 #include <stdio.h>
 #include <string.h>
 
+struct OutOpts {
+    int color;
+};
+
+static struct OutOpts opts = {1};
+
+/* Print ANSI terminal color escape sequence.
+ * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
+ *        6 - cyan, 7 - white; 10 + any previous color turns on bold.
+ */
+static void esc_color(int color)
+{
+    if (opts.color) {
+        if (color < 10) {
+            printf("\033[%im", 30 + color);
+        } else {
+            printf("\033[%i;1m", 20 + color);
+        }
+    }
+}
+
+static void esc_stopcolor(void)
+{
+    if (opts.color)
+        fputs("\033[0m", stdout);
+}
+
+static void print_type(SDSType type, int min_width)
+{
+    esc_color(2);
+    const char *s = sds_type_names[type];
+    int w = strlen(s);
+    fputs(s, stdout);
+    for (; w < min_width; w++) {
+        putc(' ', stdout);
+    }
+    esc_stopcolor();
+}
+
 static void print_atts(SDSAttInfo *att)
 {
-    char typebuf[14];
-    int i;
+    fputs("  ", stdout);
+    print_type(att->type, 7);
+    esc_color(3);
+    fputs(att->name, stdout);
+    esc_stopcolor();
 
-    while (att) {
-        memset(typebuf, ' ', sizeof(typebuf) - 1);
-        typebuf[sizeof(typebuf) - 1] = '\0';
+    // string length
+    if (att->type == SDS_STRING) {
+        printf("[%u]", (unsigned)(att->count - 1));
+    }
 
-        if (att->type == SDS_STRING) {
-            i = snprintf(typebuf, sizeof(typebuf), "string(%u)", (unsigned)(att->count - 1));
-        } else {
-            char *s = sds_type_names[att->type];
-            i = strlen(s);
-            memcpy(typebuf, s, i);
-        }
-        typebuf[i] = ' ';
-        printf("\n  %s %s = ", typebuf, att->name);
+    fputs(" = ", stdout);
 
+    // string value
+    if (att->type == SDS_STRING) {
+        esc_color(5);
+        putc('"', stdout);
+        esc_stopcolor();
+        esc_color(15);
+        fputs(att->data.str, stdout);
+        esc_stopcolor();
+        esc_color(5);
+        putc('"', stdout);
+        esc_stopcolor();
+
+        goto checknext;
+    }
+
+    // all other value types
+    for (int i = 0;;) {
+        esc_color(15);
         switch (att->type) {
         case SDS_NO_TYPE:
-            puts("?");
+            fputs("?", stdout);
             break;
         case SDS_I8:
-            for (int i = 0; i < att->count; i++) {
-                printf("%i", att->data.b[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%i", att->data.b[i]);
             break;
         case SDS_U8:
-            for (int i = 0; i < att->count; i++) {
-                printf("%u", (unsigned)att->data.ub[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%u", (unsigned)att->data.ub[i]);
             break;
         case SDS_I16:
-            for (int i = 0; i < att->count; i++) {
-                printf("%i", att->data.s[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%i", att->data.s[i]);
             break;
         case SDS_U16:
-            for (int i = 0; i < att->count; i++) {
-                printf("%u", (unsigned)att->data.us[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%u", (unsigned)att->data.us[i]);
             break;
         case SDS_I32:
-            for (int i = 0; i < att->count; i++) {
-                printf("%i", att->data.i[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%i", att->data.i[i]);
             break;
         case SDS_U32:
-            for (int i = 0; i < att->count; i++) {
-                printf("%u", (unsigned)att->data.ui[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%u", (unsigned)att->data.ui[i]);
             break;
         case SDS_I64:
-            for (int i = 0; i < att->count; i++) {
-                printf("%li", (long int)att->data.i64[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%li", (long int)att->data.i64[i]);
             break;
         case SDS_U64:
-            for (int i = 0; i < att->count; i++) {
-                printf("%lu", (long unsigned int)att->data.u64[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%lu", (long unsigned int)att->data.u64[i]);
             break;
         case SDS_FLOAT:
-            for (int i = 0; i < att->count; i++) {
-                printf("%g", (double)att->data.f[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%g", (double)att->data.f[i]);
             break;
         case SDS_DOUBLE:
-            for (int i = 0; i < att->count; i++) {
-                printf("%g", att->data.d[i]);
-                if (i + 1 < att->count)
-                    printf(", ");
-            }
+            printf("%g", att->data.d[i]);
             break;
         case SDS_STRING:
-            printf("\"%s\"", att->data.str);
+            abort();
             break;
         }
-
-        att = att->next;
+        esc_stopcolor();
+        if (++i >= att->count)
+            break;
+        printf(", ");
     }
+
+ checknext:
+    puts("");
+    if (att->next)
+        print_atts(att->next);
 }
 
 int main(int argc, char **argv)
@@ -134,24 +156,46 @@ int main(int argc, char **argv)
         puts("\nNo global attributes");
     }
 
-    puts("\nDimensions:");
+    puts("Dimensions:");
     SDSDimInfo *dim = sds->dims;
     while (dim) {
-        printf("  %s = %u%s\n", dim->name, (unsigned)dim->size,
-               dim->isunlim ? " (unlimited)" : "");
+        fputs("  ", stdout);
+        esc_color(14);
+        fputs(dim->name, stdout);
+        esc_stopcolor();
+
+        fputs(" = ", stdout);
+        esc_color(15);
+        printf("%u", (unsigned)dim->size);
+        esc_stopcolor();
+
+        puts(dim->isunlim ? " (unlimited)" : "");
+
         dim = dim->next;
     }
 
-    fputs("\nVariables:", stdout);
+    fputs("\nVariables:\n", stdout);
     SDSVarInfo *var = sds->vars;
     while (var) {
-        printf("\n\n%s %s", sds_type_names[var->type], var->name);
+        puts("");
+        print_type(var->type, -1);
+        putc(' ', stdout);
+        esc_color(3);
+        fputs(var->name, stdout);
+        esc_stopcolor();
         for (int i = 0; i < var->ndims; i++) {
-            printf("[%s]", var->dims[i]->name);
+            putc('[', stdout);
+            esc_color(14);
+            fputs(var->dims[i]->name, stdout);
+            esc_stopcolor();
+            printf("=%u]", var->dims[i]->size);
         }
         if (var->iscoord)
-            fputs(" (coordinate)", stdout);
-        print_atts(var->atts);
+            fputs(" (coordinate)\n", stdout);
+        else
+            puts("");
+        if (var->atts)
+            print_atts(var->atts);
 
         var = var->next;
     }
