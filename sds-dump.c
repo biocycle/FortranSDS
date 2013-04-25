@@ -3,8 +3,10 @@
 #include "c99/sds.h"
 #include "c99/util.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static const int TYPE_COLOR = 2;
 static const int VARNAME_COLOR = 3;
@@ -13,10 +15,11 @@ static const int VALUE_COLOR = 15;
 static const int QUOTE_COLOR = 5;
 
 struct OutOpts {
+    char *infile;
     int color;
 };
 
-static struct OutOpts opts = {1};
+static struct OutOpts opts = {NULL, 0};
 
 /* Print ANSI terminal color escape sequence.
  * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
@@ -134,17 +137,76 @@ static void print_atts(SDSAttInfo *att)
         print_atts(att->next);
 }
 
-int main(int argc, char **argv)
+static const char *USAGE =
+    "Usage: %s [OPTION]... INFILE\n"
+    "Dumps part or all of INFILE, producing a colorful summary of its contents "
+    "by default.\n"
+    "\n"
+    "Options:\n"
+    "  -G   Always color the output.\n"
+    "  -h   Print this help and exit.\n"
+;
+
+static void usage(const char *progname, const char *message, ...)
 {
-    if (argc < 2) {
-        printf("Usage: %s INFILE.hdf\n", argv[0]);
-        return -1;
+    char *pname = strrchr(progname, '/');
+    if (pname) {
+        pname++;
+    } else {
+        pname = (char *)progname;
+    }
+    fprintf(stderr, "%s: ", pname);
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+    puts("\n");
+
+    fprintf(stderr, USAGE, pname);
+    exit(-1);
+}
+
+static void parse_arg(int argc, char **argv, int i)
+{
+    if (!strcmp(argv[i]+1, "h")) { // help
+        printf(USAGE, argv[0]);
+        exit(0);
+    } else if (!strcmp(argv[i]+1, "G")) { // force color on
+        opts.color = 1;
+    } else {
+        usage(argv[0], "unrecognized command line option '%s'", argv[i]);
+    }
+}
+
+static void parse_args(int argc, char **argv)
+{
+    if (isatty(STDOUT_FILENO))
+        opts.color = 1; // default to color when printing to the terminal
+
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') { // parse the option
+            parse_arg(argc, argv, i);
+        } else { // this is the infile
+            if (opts.infile) {
+                usage(argv[0], "only one input file is allowed");
+            }
+            opts.infile = argv[i];
+        }
     }
 
-    SDSInfo *sds = open_any_sds(argv[1]);
+    if (!opts.infile) {
+        usage(argv[0], "you need to specify an input file");
+    }
+}
+
+int main(int argc, char **argv)
+{
+    parse_args(argc, argv);
+
+    SDSInfo *sds = open_any_sds(opts.infile);
     if (!sds) {
-        printf("%s: Not a supported Scientific Data Set (SDS) file\n",
-               argv[1]);
+        printf("%s: error opening file\n", opts.infile);
         return -2;
     }
 
@@ -194,7 +256,7 @@ int main(int argc, char **argv)
             esc_color(DIMNAME_COLOR);
             fputs(var->dims[i]->name, stdout);
             esc_stopcolor();
-            printf("=%u]", var->dims[i]->size);
+            printf("=%u]", (unsigned)var->dims[i]->size);
         }
         if (var->iscoord)
             fputs(" (coordinate)\n", stdout);
