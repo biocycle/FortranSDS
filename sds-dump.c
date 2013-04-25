@@ -6,6 +6,12 @@
 #include <stdio.h>
 #include <string.h>
 
+static const int TYPE_COLOR = 2;
+static const int VARNAME_COLOR = 3;
+static const int DIMNAME_COLOR = 14;
+static const int VALUE_COLOR = 15;
+static const int QUOTE_COLOR = 5;
+
 struct OutOpts {
     int color;
 };
@@ -35,7 +41,7 @@ static void esc_stopcolor(void)
 
 static void print_type(SDSType type, int min_width)
 {
-    esc_color(2);
+    esc_color(TYPE_COLOR);
     const char *s = sds_type_names[type];
     int w = strlen(s);
     fputs(s, stdout);
@@ -49,7 +55,7 @@ static void print_atts(SDSAttInfo *att)
 {
     fputs("  ", stdout);
     print_type(att->type, 7);
-    esc_color(3);
+    esc_color(VARNAME_COLOR);
     fputs(att->name, stdout);
     esc_stopcolor();
 
@@ -62,13 +68,13 @@ static void print_atts(SDSAttInfo *att)
 
     // string value
     if (att->type == SDS_STRING) {
-        esc_color(5);
+        esc_color(QUOTE_COLOR);
         putc('"', stdout);
         esc_stopcolor();
-        esc_color(15);
+        esc_color(VALUE_COLOR);
         fputs(att->data.str, stdout);
         esc_stopcolor();
-        esc_color(5);
+        esc_color(QUOTE_COLOR);
         putc('"', stdout);
         esc_stopcolor();
 
@@ -77,7 +83,7 @@ static void print_atts(SDSAttInfo *att)
 
     // all other value types
     for (int i = 0;;) {
-        esc_color(15);
+        esc_color(VALUE_COLOR);
         switch (att->type) {
         case SDS_NO_TYPE:
             fputs("?", stdout);
@@ -160,12 +166,12 @@ int main(int argc, char **argv)
     SDSDimInfo *dim = sds->dims;
     while (dim) {
         fputs("  ", stdout);
-        esc_color(14);
+        esc_color(DIMNAME_COLOR);
         fputs(dim->name, stdout);
         esc_stopcolor();
 
         fputs(" = ", stdout);
-        esc_color(15);
+        esc_color(VALUE_COLOR);
         printf("%u", (unsigned)dim->size);
         esc_stopcolor();
 
@@ -180,12 +186,12 @@ int main(int argc, char **argv)
         puts("");
         print_type(var->type, -1);
         putc(' ', stdout);
-        esc_color(3);
+        esc_color(VARNAME_COLOR);
         fputs(var->name, stdout);
         esc_stopcolor();
         for (int i = 0; i < var->ndims; i++) {
             putc('[', stdout);
-            esc_color(14);
+            esc_color(DIMNAME_COLOR);
             fputs(var->dims[i]->name, stdout);
             esc_stopcolor();
             printf("=%u]", var->dims[i]->size);
