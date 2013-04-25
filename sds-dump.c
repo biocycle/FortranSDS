@@ -8,18 +8,29 @@
 #include <string.h>
 #include <unistd.h>
 
-static const int TYPE_COLOR = 2;
-static const int VARNAME_COLOR = 3;
-static const int DIMNAME_COLOR = 14;
-static const int VALUE_COLOR = 15;
-static const int QUOTE_COLOR = 5;
+static const int TYPE_COLOR    = 16; // bright cyan
+static const int ATTNAME_COLOR = 3; // yellow
+static const int VARNAME_COLOR = 2; // green
+static const int DIMNAME_COLOR = 5; // magenta
+static const int VALUE_COLOR   = 14; // blue
+static const int QUOTE_COLOR   = 4;
+
+enum OutputType {
+    FULL_SUMMARY,
+    LIST_DIMS,
+    LIST_VARS,
+    LIST_ATTS
+};
 
 struct OutOpts {
     char *infile;
     int color;
+    int single_column;
+    char *separator;
+    enum OutputType out_type;
 };
 
-static struct OutOpts opts = {NULL, 0};
+static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY};
 
 /* Print ANSI terminal color escape sequence.
  * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
@@ -36,7 +47,13 @@ static void esc_color(int color)
     }
 }
 
-static void esc_stopcolor(void)
+static void esc_bold(void)
+{
+    if (opts.color)
+        fputs("\033[1m", stdout);
+}
+
+static void esc_stop(void)
 {
     if (opts.color)
         fputs("\033[0m", stdout);
@@ -51,16 +68,16 @@ static void print_type(SDSType type, int min_width)
     for (; w < min_width; w++) {
         putc(' ', stdout);
     }
-    esc_stopcolor();
+    esc_stop();
 }
 
 static void print_atts(SDSAttInfo *att)
 {
     fputs("  ", stdout);
     print_type(att->type, 7);
-    esc_color(VARNAME_COLOR);
+    esc_color(ATTNAME_COLOR);
     fputs(att->name, stdout);
-    esc_stopcolor();
+    esc_stop();
 
     // string length
     if (att->type == SDS_STRING) {
@@ -73,13 +90,13 @@ static void print_atts(SDSAttInfo *att)
     if (att->type == SDS_STRING) {
         esc_color(QUOTE_COLOR);
         putc('"', stdout);
-        esc_stopcolor();
+        esc_stop();
         esc_color(VALUE_COLOR);
         fputs(att->data.str, stdout);
-        esc_stopcolor();
+        esc_stop();
         esc_color(QUOTE_COLOR);
         putc('"', stdout);
-        esc_stopcolor();
+        esc_stop();
 
         goto checknext;
     }
@@ -125,7 +142,7 @@ static void print_atts(SDSAttInfo *att)
             abort();
             break;
         }
-        esc_stopcolor();
+        esc_stop();
         if (++i >= att->count)
             break;
         printf(", ");
@@ -137,14 +154,128 @@ static void print_atts(SDSAttInfo *att)
         print_atts(att->next);
 }
 
+static void print_full_summary(SDSInfo *sds)
+{
+    esc_bold();
+    fputs(sds->path, stdout);
+    esc_stop();
+    printf(": %s format\n  ", sds_file_types[(int)sds->type]);
+
+    esc_color(ATTNAME_COLOR);
+    printf("%u global attributes", (unsigned)list_count((List *)sds->gatts));
+    esc_stop();
+    fputs(", ", stdout);
+    esc_color(DIMNAME_COLOR);
+    printf("%u dimensions", (unsigned)list_count((List *)sds->dims));
+    esc_stop();
+    fputs(", ", stdout);
+    esc_color(VARNAME_COLOR);
+    printf("%u variables\n", (unsigned)list_count((List *)sds->vars));
+    esc_stop();
+
+    if (sds->gatts) {
+        puts("\nGlobal attributes:");
+        print_atts(sds->gatts);
+        puts("");
+    } else {
+        puts("\nNo global attributes");
+    }
+
+    puts("Dimensions:");
+    SDSDimInfo *dim = sds->dims;
+    while (dim) {
+        fputs("  ", stdout);
+        esc_color(DIMNAME_COLOR);
+        fputs(dim->name, stdout);
+        esc_stop();
+
+        fputs(" = ", stdout);
+        esc_color(VALUE_COLOR);
+        printf("%u", (unsigned)dim->size);
+        esc_stop();
+
+        puts(dim->isunlim ? " (unlimited)" : "");
+
+        dim = dim->next;
+    }
+
+    fputs("\nVariables:\n", stdout);
+    SDSVarInfo *var = sds->vars;
+    while (var) {
+        puts("");
+        print_type(var->type, -1);
+        putc(' ', stdout);
+        esc_color(VARNAME_COLOR);
+        fputs(var->name, stdout);
+        esc_stop();
+        for (int i = 0; i < var->ndims; i++) {
+            putc('[', stdout);
+            esc_color(DIMNAME_COLOR);
+            fputs(var->dims[i]->name, stdout);
+            esc_stop();
+            printf("=%u]", (unsigned)var->dims[i]->size);
+        }
+        if (var->iscoord)
+            fputs(" (coordinate)\n", stdout);
+        else
+            puts("");
+        if (var->atts)
+            print_atts(var->atts);
+
+        var = var->next;
+    }
+    puts("");
+}
+
+static void print_list_atts(SDSAttInfo *atts)
+{
+    for (SDSAttInfo *att = atts; att != NULL; att = att->next) {
+        esc_color(ATTNAME_COLOR);
+        fputs(att->name, stdout);
+        esc_stop();
+        fputs(opts.separator, stdout);
+    }
+    if (!opts.single_column)
+        puts("");
+}
+
+static void print_list_dims(SDSDimInfo *dims)
+{
+    for (SDSDimInfo *dim = dims; dim != NULL; dim = dim->next) {
+        esc_color(DIMNAME_COLOR);
+        fputs(dim->name, stdout);
+        esc_stop();
+        fputs(opts.separator, stdout);
+    }
+    if (!opts.single_column)
+        puts("");
+}
+
+static void print_list_vars(SDSVarInfo *vars)
+{
+    for (SDSVarInfo *var = vars; var != NULL; var = var->next) {
+        esc_color(VARNAME_COLOR);
+        fputs(var->name, stdout);
+        esc_stop();
+        fputs(opts.separator, stdout);
+    }
+    if (!opts.single_column)
+        puts("");
+}
+
 static const char *USAGE =
     "Usage: %s [OPTION]... INFILE\n"
     "Dumps part or all of INFILE, producing a colorful summary of its contents "
     "by default.\n"
     "\n"
     "Options:\n"
-    "  -G   Always color the output.\n"
-    "  -h   Print this help and exit.\n"
+    "  -1          Output values in a single column (use newline instead of space\n"
+    "              as the separator).\n"
+    "  -G          Always color the output.\n"
+    "  -h          Print this help and exit.\n"
+    "  -la [var]   List the attributes for the file or the variable if given\n"
+    "  -ld [var]   List the dimensions for the file or the variable if given\n"
+    "  -lv         List the variables in the file"
 ;
 
 static void usage(const char *progname, const char *message, ...)
@@ -169,11 +300,22 @@ static void usage(const char *progname, const char *message, ...)
 
 static void parse_arg(int argc, char **argv, int i)
 {
-    if (!strcmp(argv[i]+1, "h")) { // help
-        printf(USAGE, argv[0]);
-        exit(0);
+    if (!strcmp(argv[i]+1, "1")) { // single-column output mode
+        opts.single_column = 1;
+        opts.separator = "\n";
     } else if (!strcmp(argv[i]+1, "G")) { // force color on
         opts.color = 1;
+    } else if (!strcmp(argv[i]+1, "h")) { // help
+        printf(USAGE, argv[0]);
+        exit(0);
+    } else if (!strcmp(argv[i]+1, "la")) { // list atts [var]
+        opts.out_type = LIST_ATTS;
+        // XXX check for var
+    } else if (!strcmp(argv[i]+1, "ld")) { // list dims [var]
+        opts.out_type = LIST_DIMS;
+        // XXX check for var
+    } else if (!strcmp(argv[i]+1, "lv")) { // list vars
+        opts.out_type = LIST_VARS;
     } else {
         usage(argv[0], "unrecognized command line option '%s'", argv[i]);
     }
@@ -210,64 +352,22 @@ int main(int argc, char **argv)
         return -2;
     }
 
-    printf("%s:\n  %s format; %u global attributes, %u dimensions, %u variables\n", sds->path,
-           sds_file_types[(int)sds->type],
-           (unsigned)list_count((List *)sds->gatts),
-           (unsigned)list_count((List *)sds->dims),
-           (unsigned)list_count((List *)sds->vars));
-
-    if (sds->gatts) {
-        puts("\nGlobal attributes:");
-        print_atts(sds->gatts);
-        puts("");
-    } else {
-        puts("\nNo global attributes");
+    switch (opts.out_type) {
+    case FULL_SUMMARY:
+        print_full_summary(sds);
+        break;
+    case LIST_ATTS:
+        print_list_atts(sds->gatts);
+        break;
+    case LIST_DIMS:
+        print_list_dims(sds->dims);
+        break;
+    case LIST_VARS:
+        print_list_vars(sds->vars);
+        break;
+    default:
+        abort();
     }
-
-    puts("Dimensions:");
-    SDSDimInfo *dim = sds->dims;
-    while (dim) {
-        fputs("  ", stdout);
-        esc_color(DIMNAME_COLOR);
-        fputs(dim->name, stdout);
-        esc_stopcolor();
-
-        fputs(" = ", stdout);
-        esc_color(VALUE_COLOR);
-        printf("%u", (unsigned)dim->size);
-        esc_stopcolor();
-
-        puts(dim->isunlim ? " (unlimited)" : "");
-
-        dim = dim->next;
-    }
-
-    fputs("\nVariables:\n", stdout);
-    SDSVarInfo *var = sds->vars;
-    while (var) {
-        puts("");
-        print_type(var->type, -1);
-        putc(' ', stdout);
-        esc_color(VARNAME_COLOR);
-        fputs(var->name, stdout);
-        esc_stopcolor();
-        for (int i = 0; i < var->ndims; i++) {
-            putc('[', stdout);
-            esc_color(DIMNAME_COLOR);
-            fputs(var->dims[i]->name, stdout);
-            esc_stopcolor();
-            printf("=%u]", (unsigned)var->dims[i]->size);
-        }
-        if (var->iscoord)
-            fputs(" (coordinate)\n", stdout);
-        else
-            puts("");
-        if (var->atts)
-            print_atts(var->atts);
-
-        var = var->next;
-    }
-    puts("");
 
     sds_close(sds);
 
