@@ -45,9 +45,11 @@ typedef enum {
  */
 extern const char *sds_type_names[];
 
+// Constants for the iscoord value of SDSVarInfo
 #define SDS_COORD 1
 #define SDS_DATA 0
 
+// Constants for the isunlim value of SDSDimInfo
 #define SDS_UNLIM 1
 #define SDS_LIM 0
 
