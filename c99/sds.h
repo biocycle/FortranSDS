@@ -20,6 +20,11 @@ typedef enum {
     SDS_HDF5_FILE
 } SDSFileType;
 
+/* Index into this array with an SDSFileType to get a human-readable name
+ * for the file type.
+ */
+extern const char *sds_file_types[];
+
 typedef enum {
     SDS_NO_TYPE,
     SDS_I8,
@@ -34,6 +39,11 @@ typedef enum {
     SDS_DOUBLE,
     SDS_STRING
 } SDSType;
+
+/* Index into this array with an SDSType to get a human-readable name
+ * for that type.
+ */
+extern const char *sds_type_names[];
 
 #define SDS_COORD 1
 #define SDS_DATA 0

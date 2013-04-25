@@ -4,16 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static char *sds_file_types[] = {
-    "unknown", "NetCDF3", "NetCDF4", "HDF4", "HDF5"
-};
-
-static char *sds_type_names[] = {
-    "<no type>", "int8", "uint8", "int16", "uint16", "int32", "uint32",
-    "int64", "uint64",
-    "float", "double", "string"
-};
-
 static void print_atts(SDSAttInfo *att)
 {
     char typebuf[14];

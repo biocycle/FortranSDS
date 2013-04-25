@@ -4,6 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
+const char *sds_file_types[] = {
+    "unknown", "NetCDF3", "NetCDF4", "HDF4", "HDF5"
+};
+
+const char *sds_type_names[] = {
+    "<no type>", "int8", "uint8", "int16", "uint16", "int32", "uint32",
+    "int64", "uint64",
+    "float", "double", "string"
+};
+
 /* Copies an SDSInfo struct, its attributes, dimensions and variables. The copy
  * is deep and typeless (i.e. not tied to  NetCDF, HDF, etc.), so a new SDS
  * file of any type can be created from it.
