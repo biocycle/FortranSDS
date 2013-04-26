@@ -19,7 +19,8 @@ enum OutputType {
     FULL_SUMMARY,
     LIST_DIMS,
     LIST_VARS,
-    LIST_ATTS
+    LIST_ATTS,
+    PRINT_VAR
 };
 
 struct OutOpts {
@@ -28,9 +29,10 @@ struct OutOpts {
     int single_column;
     char *separator;
     enum OutputType out_type;
+    char *name; // dim, var, etc. to narrow output to
 };
 
-static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY};
+static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY, NULL};
 
 /* Print ANSI terminal color escape sequence.
  * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
@@ -71,6 +73,51 @@ static void print_type(SDSType type, int min_width)
     esc_stop();
 }
 
+static void print_value(SDSType type, void *ary, size_t u)
+{
+    esc_color(VALUE_COLOR);
+    switch (type) {
+    case SDS_NO_TYPE:
+        fputs("?", stdout);
+        break;
+    case SDS_I8:
+        printf("%i", ((int8_t *)ary)[u]);
+        break;
+    case SDS_U8:
+        printf("%u", ((uint8_t *)ary)[u]);
+        break;
+    case SDS_I16:
+        printf("%i", ((int16_t *)ary)[u]);
+        break;
+    case SDS_U16:
+        printf("%u", ((uint16_t *)ary)[u]);
+        break;
+    case SDS_I32:
+        printf("%i", ((int32_t *)ary)[u]);
+        break;
+    case SDS_U32:
+        printf("%u", ((uint32_t *)ary)[u]);
+        break;
+    case SDS_I64:
+        printf("%li", ((int64_t *)ary)[u]);
+        break;
+    case SDS_U64:
+        printf("%lu", ((uint64_t *)ary)[u]);
+        break;
+    case SDS_FLOAT:
+        printf("%g", ((float *)ary)[u]);
+        break;
+    case SDS_DOUBLE:
+        printf("%g", ((double *)ary)[u]);
+        break;
+    case SDS_STRING:
+        fprintf(stderr, "asked to print_value(SDS_STRING, ...)!");
+        abort();
+        break;
+    }
+    esc_stop();
+}
+
 static void print_atts(SDSAttInfo *att)
 {
     fputs("  ", stdout);
@@ -103,46 +150,7 @@ static void print_atts(SDSAttInfo *att)
 
     // all other value types
     for (int i = 0;;) {
-        esc_color(VALUE_COLOR);
-        switch (att->type) {
-        case SDS_NO_TYPE:
-            fputs("?", stdout);
-            break;
-        case SDS_I8:
-            printf("%i", att->data.b[i]);
-            break;
-        case SDS_U8:
-            printf("%u", (unsigned)att->data.ub[i]);
-            break;
-        case SDS_I16:
-            printf("%i", att->data.s[i]);
-            break;
-        case SDS_U16:
-            printf("%u", (unsigned)att->data.us[i]);
-            break;
-        case SDS_I32:
-            printf("%i", att->data.i[i]);
-            break;
-        case SDS_U32:
-            printf("%u", (unsigned)att->data.ui[i]);
-            break;
-        case SDS_I64:
-            printf("%li", (long int)att->data.i64[i]);
-            break;
-        case SDS_U64:
-            printf("%lu", (long unsigned int)att->data.u64[i]);
-            break;
-        case SDS_FLOAT:
-            printf("%g", (double)att->data.f[i]);
-            break;
-        case SDS_DOUBLE:
-            printf("%g", att->data.d[i]);
-            break;
-        case SDS_STRING:
-            abort();
-            break;
-        }
-        esc_stop();
+        print_value(att->type, att->data.v, i);
         if (++i >= att->count)
             break;
         printf(", ");
@@ -227,9 +235,24 @@ static void print_full_summary(SDSInfo *sds)
     puts("");
 }
 
-static void print_list_atts(SDSAttInfo *atts)
+static SDSVarInfo *var_or_die(SDSInfo *sds, const char *varname)
 {
-    for (SDSAttInfo *att = atts; att != NULL; att = att->next) {
+    SDSVarInfo *var = sds_var_by_name(sds->vars, varname);
+    if (!var) {
+        fprintf(stderr, "%s: no variable '%s' found\n", opts.infile, varname);
+        exit(-3);
+    }
+    return var;
+}
+
+static void print_list_atts(SDSInfo *sds)
+{
+    SDSAttInfo *att = sds->gatts;
+    if (opts.name) {
+        att = var_or_die(sds, opts.name)->atts;
+    }
+
+    for (; att != NULL; att = att->next) {
         esc_color(ATTNAME_COLOR);
         fputs(att->name, stdout);
         esc_stop();
@@ -239,13 +262,23 @@ static void print_list_atts(SDSAttInfo *atts)
         puts("");
 }
 
-static void print_list_dims(SDSDimInfo *dims)
+static void print_dim(SDSDimInfo *dim)
 {
-    for (SDSDimInfo *dim = dims; dim != NULL; dim = dim->next) {
-        esc_color(DIMNAME_COLOR);
-        fputs(dim->name, stdout);
-        esc_stop();
-        fputs(opts.separator, stdout);
+    esc_color(DIMNAME_COLOR);
+    fputs(dim->name, stdout);
+    esc_stop();
+    fputs(opts.separator, stdout);
+}
+
+static void print_list_dims(SDSInfo *sds)
+{
+    if (opts.name) {
+        SDSVarInfo *var = var_or_die(sds, opts.name);
+        for (int i = 0; i < var->ndims; i++)
+            print_dim(var->dims[i]);
+    } else {
+        for (SDSDimInfo *dim = sds->dims; dim != NULL; dim = dim->next)
+            print_dim(dim);
     }
     if (!opts.single_column)
         puts("");
@@ -263,19 +296,61 @@ static void print_list_vars(SDSVarInfo *vars)
         puts("");
 }
 
+static void print_some_values(SDSType type, void *values, size_t count)
+{
+    for (size_t u = 0;;) {
+        print_value(type, values, u);
+        if (++u >= count)
+            break;
+        fputs(opts.separator, stdout);
+    }
+}
+
+static void print_var_values(SDSInfo *sds)
+{
+    SDSVarInfo *var = var_or_die(sds, opts.name);
+
+    size_t count_per_tstep = 1;
+    for (int i = 1; i < var->ndims; i++)
+        count_per_tstep *= var->dims[i]->size;
+
+    void *buf = NULL;
+    if (var->ndims > 1) {
+        for (int tstep = 0; tstep < var->dims[0]->size; tstep++) {
+            void *values = sds_timestep(var, &buf, tstep);
+            print_some_values(var->type, values, count_per_tstep);
+            fputs(opts.separator, stdout);
+        }
+    } else {
+        void *values = sds_read(var, &buf);
+        if (var->ndims == 0) {
+            print_value(var->type, values, 0);
+        } else {
+            print_some_values(var->type, values, var->dims[0]->size);
+        }
+    }
+    sds_buffer_free(buf);
+
+    if (!opts.single_column)
+        puts("");
+}
+
 static const char *USAGE =
     "Usage: %s [OPTION]... INFILE\n"
     "Dumps part or all of INFILE, producing a colorful summary of its contents "
     "by default.\n"
     "\n"
     "Options:\n"
-    "  -1          Output values in a single column (use newline instead of space\n"
+    "  -1          output values in a single column (use newline instead of space\n"
     "              as the separator).\n"
-    "  -G          Always color the output.\n"
-    "  -h          Print this help and exit.\n"
-    "  -la [var]   List the attributes for the file or the variable if given\n"
-    "  -ld [var]   List the dimensions for the file or the variable if given\n"
-    "  -lv         List the variables in the file"
+    "  -G          always color the output.\n"
+    "  -h          print this help and exit.\n"
+    "  -la         list the global attributes in the file\n"
+    "  -lav VAR    list the attributes for the given variable\n"
+    "  -ld         list the dimensions in the file\n"
+    "  -ldv VAR    list the dimensions for thi given variable\n"
+    "  -lv         list the variables in the file\n"
+    "  -v VAR      print the given variable's values\n"
 ;
 
 static void usage(const char *progname, const char *message, ...)
@@ -298,26 +373,41 @@ static void usage(const char *progname, const char *message, ...)
     exit(-1);
 }
 
-static void parse_arg(int argc, char **argv, int i)
+static void parse_arg(int argc, char **argv, int *ip)
 {
-    if (!strcmp(argv[i]+1, "1")) { // single-column output mode
+    char *opt = argv[*ip]+1;
+
+    if (!strcmp(opt, "1")) { // single-column output mode
         opts.single_column = 1;
         opts.separator = "\n";
-    } else if (!strcmp(argv[i]+1, "G")) { // force color on
+    } else if (!strcmp(opt, "G")) { // force color on
         opts.color = 1;
-    } else if (!strcmp(argv[i]+1, "h")) { // help
+    } else if (!strcmp(opt, "h")) { // help
         printf(USAGE, argv[0]);
         exit(0);
-    } else if (!strcmp(argv[i]+1, "la")) { // list atts [var]
+    } else if (!strcmp(opt, "la")) { // list atts
         opts.out_type = LIST_ATTS;
-        // XXX check for var
-    } else if (!strcmp(argv[i]+1, "ld")) { // list dims [var]
+    } else if (!strcmp(opt, "lav")) { // list atts for var
+        opts.out_type = LIST_ATTS;
+        if (++(*ip) >= argc)
+            usage(argv[0], "missing variable name");
+        opts.name = argv[*ip];
+    } else if (!strcmp(opt, "ld")) { // list dims
         opts.out_type = LIST_DIMS;
-        // XXX check for var
-    } else if (!strcmp(argv[i]+1, "lv")) { // list vars
+    } else if (!strcmp(opt, "ldv")) { // list dims for var
+        opts.out_type = LIST_DIMS;
+        if (++(*ip) >= argc)
+            usage(argv[0], "missing variable name");
+        opts.name = argv[*ip];
+    } else if (!strcmp(opt, "lv")) { // list vars
         opts.out_type = LIST_VARS;
+    } else if (!strcmp(opt, "v")) { // print var's values
+        opts.out_type = PRINT_VAR;
+        if (++(*ip) >= argc)
+            usage(argv[0], "missing variable name");
+        opts.name = argv[*ip];
     } else {
-        usage(argv[0], "unrecognized command line option '%s'", argv[i]);
+        usage(argv[0], "unrecognized command line option '%s'", argv[*ip]);
     }
 }
 
@@ -328,7 +418,7 @@ static void parse_args(int argc, char **argv)
 
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') { // parse the option
-            parse_arg(argc, argv, i);
+            parse_arg(argc, argv, &i);
         } else { // this is the infile
             if (opts.infile) {
                 usage(argv[0], "only one input file is allowed");
@@ -357,13 +447,16 @@ int main(int argc, char **argv)
         print_full_summary(sds);
         break;
     case LIST_ATTS:
-        print_list_atts(sds->gatts);
+        print_list_atts(sds);
         break;
     case LIST_DIMS:
-        print_list_dims(sds->dims);
+        print_list_dims(sds);
         break;
     case LIST_VARS:
         print_list_vars(sds->vars);
+        break;
+    case PRINT_VAR:
+        print_var_values(sds);
         break;
     default:
         abort();
