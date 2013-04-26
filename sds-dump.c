@@ -23,6 +23,7 @@ enum OutputType {
     LIST_VARS,
     LIST_ATTS,
     LIST_DIM_SIZES,
+    PRINT_ATTS,
     PRINT_VAR
 };
 
@@ -33,9 +34,10 @@ struct OutOpts {
     char *separator;
     enum OutputType out_type;
     const char *name; // dim, var, etc. to narrow output to
+    const char *att;
 };
 
-static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY, NULL};
+static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY, NULL, NULL};
 
 #ifndef S_ISLNK
 #  define S_ISLNK(mode) (((mode) & S_IFLNK) != 0)
@@ -152,6 +154,29 @@ static void print_value(SDSType type, void *ary, size_t u)
     esc_stop();
 }
 
+static void print_att_values(SDSAttInfo *att)
+{
+    if (att->type == SDS_STRING) {
+        esc_color(QUOTE_COLOR);
+        putc('"', stdout);
+        esc_stop();
+        esc_color(VALUE_COLOR);
+        // XXX escape embedded quotes
+        fputs(att->data.str, stdout);
+        esc_stop();
+        esc_color(QUOTE_COLOR);
+        putc('"', stdout);
+        esc_stop();
+    } else { // all other value types
+        for (int i = 0;;) {
+            print_value(att->type, att->data.v, i);
+            if (++i >= att->count)
+                break;
+            fputs(opts.separator, stdout);
+        }
+    }
+}
+
 static void print_atts(SDSAttInfo *att)
 {
     fputs("  ", stdout);
@@ -167,30 +192,8 @@ static void print_atts(SDSAttInfo *att)
 
     fputs(" = ", stdout);
 
-    // string value
-    if (att->type == SDS_STRING) {
-        esc_color(QUOTE_COLOR);
-        putc('"', stdout);
-        esc_stop();
-        esc_color(VALUE_COLOR);
-        fputs(att->data.str, stdout);
-        esc_stop();
-        esc_color(QUOTE_COLOR);
-        putc('"', stdout);
-        esc_stop();
+    print_att_values(att);
 
-        goto checknext;
-    }
-
-    // all other value types
-    for (int i = 0;;) {
-        print_value(att->type, att->data.v, i);
-        if (++i >= att->count)
-            break;
-        printf(", ");
-    }
-
- checknext:
     puts("");
     if (att->next)
         print_atts(att->next);
@@ -198,6 +201,8 @@ static void print_atts(SDSAttInfo *att)
 
 static void print_full_summary(SDSInfo *sds)
 {
+    opts.separator = ", ";
+
     esc_bold();
     fputs(sds->path, stdout);
     esc_stop();
@@ -364,6 +369,48 @@ static void print_var_dim_sizes(SDSInfo *sds)
         puts("");
 }
 
+static void print_atts_values(SDSInfo *sds)
+{
+    SDSAttInfo *atts = sds->gatts;
+    if (opts.name) { // narrow to a var
+        atts = var_or_die(sds, opts.name)->atts;
+    }
+
+    if (opts.att) { // narrow to an attribute
+        SDSAttInfo *att = sds_att_by_name(atts, opts.att);
+        if (!att) {
+            fesc_bold(stderr);
+            fputs(opts.infile, stderr);
+            fesc_stop(stderr);
+            fputs(": ", stderr);
+            if (!opts.name)
+                fputs("global ", stderr);
+            fputs("attribute '", stderr);
+            fesc_color(ATTNAME_COLOR, stderr);
+            fputs(opts.att, stderr);
+            fesc_stop(stderr);
+            if (opts.name) {
+                fputs("' not found for variable '", stderr);
+                fesc_color(VARNAME_COLOR, stderr);
+                fputs(opts.name, stderr);
+                fesc_stop(stderr);
+                fputs("'\n", stderr);
+            } else {
+                fputs("' not found\n", stderr);
+            }
+            exit(-4);
+        }
+        print_att_values(att);
+    } else {
+        while (atts) {
+            print_att_values(atts);
+            fputs(opts.separator, stdout);
+            atts = atts->next;
+        }
+    }
+    puts("");
+}
+
 static void print_some_values(SDSType type, void *values, size_t count)
 {
     for (size_t u = 0;;) {
@@ -409,18 +456,22 @@ static const char *USAGE =
     "by default.\n"
     "\n"
     "Options:\n"
-    "  -1          output values in a single column\n"
-    "  -d [VAR]    print dimension sizes for the whole file or the specified\n"
-    "              variable, if given\n"
-    "  -g          never color the output\n"
-    "  -G          always color the output\n"
-    "  -h          print this help and exit\n"
-    "  -la [VAR]   list the attributes in the file or for the specified\n"
-    "              variable if given\n"
-    "  -ld [VAR]   list the dimensions in the file or for the specified\n"
-    "              variable if given\n"
-    "  -lv         list the variables in the file\n"
-    "  -v VAR      print the specified variable's values\n"
+    "  -1             output values in a single column\n"
+    "  -a [VAR][@ATT] prints attribute values.  If a variable name is given, that\n"
+    "                 variable is selected instead of global attributes.  If an\n"
+    "                 attribute name is given (identified with the '@'), just that\n"
+    "                 attribute's value(s) are printed.\n"
+    "  -d [VAR]       print dimension sizes for the whole file or the specified\n"
+    "                 variable, if given\n"
+    "  -g             never color the output\n"
+    "  -G             always color the output\n"
+    "  -h             print this help and exit\n"
+    "  -la [VAR]      list the attributes in the file or for the specified\n"
+    "                 variable if given\n"
+    "  -ld [VAR]      list the dimensions in the file or for the specified\n"
+    "                 variable if given\n"
+    "  -lv            list the variables in the file\n"
+    "  -v VAR         print the specified variable's values\n"
 ;
 
 static void usage(const char *progname, const char *message, ...)
@@ -467,7 +518,20 @@ static void parse_arg(int argc, char **argv, int *ip)
     if (!strcmp(opt, "1")) { // single-column output mode
         opts.single_column = 1;
         opts.separator = "\n";
-    } else if (!strcmp(opt, "d")) { // list dim sizes
+    } else if (!strcmp(opt, "a")) { // print attribute values
+        opts.out_type = PRINT_ATTS;
+        const char *s = get_optional_arg(argc, argv, ip);
+        if (s) {
+            char *at = strchr(s, '@');
+            if (at) {
+                *at = '\0';
+                opts.att = at+1;
+            }
+            if (strlen(s) > 0) {
+                opts.name = s;
+            }
+        }
+    } else if (!strcmp(opt, "d")) { // list dim sizes (for var)
         opts.out_type = LIST_DIM_SIZES;
         opts.name = get_optional_arg(argc, argv, ip);
     } else if (!strcmp(opt, "g")) { // force color off
@@ -477,10 +541,10 @@ static void parse_arg(int argc, char **argv, int *ip)
     } else if (!strcmp(opt, "h")) { // help
         printf(USAGE, argv[0]);
         exit(0);
-    } else if (!strcmp(opt, "la")) { // list atts
+    } else if (!strcmp(opt, "la")) { // list atts (for var)
         opts.out_type = LIST_ATTS;
         opts.name = get_optional_arg(argc, argv, ip);
-    } else if (!strcmp(opt, "ld")) { // list dims
+    } else if (!strcmp(opt, "ld")) { // list dims (for var)
         opts.out_type = LIST_DIMS;
         opts.name = get_optional_arg(argc, argv, ip);
     } else if (!strcmp(opt, "lv")) { // list vars
@@ -547,6 +611,9 @@ int main(int argc, char **argv)
             print_var_dim_sizes(sds);
         else
             print_dim_sizes(sds);
+        break;
+    case PRINT_ATTS:
+        print_atts_values(sds);
         break;
     case PRINT_VAR:
         print_var_values(sds);
