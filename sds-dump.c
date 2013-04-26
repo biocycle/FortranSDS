@@ -20,6 +20,8 @@ enum OutputType {
     LIST_DIMS,
     LIST_VARS,
     LIST_ATTS,
+    LIST_DIM_SIZES,
+    LIST_VAR_DIM_SIZES,
     PRINT_VAR
 };
 
@@ -296,6 +298,32 @@ static void print_list_vars(SDSVarInfo *vars)
         puts("");
 }
 
+static void print_dim_sizes(SDSInfo *sds)
+{
+    for (SDSDimInfo *dim = sds->dims; dim != NULL; dim = dim->next) {
+        esc_color(VALUE_COLOR);
+        printf("%u", (unsigned)dim->size);
+        esc_stop();
+        fputs(opts.separator, stdout);
+    }
+    if (!opts.single_column)
+        puts("");
+}
+
+static void print_var_dim_sizes(SDSInfo *sds)
+{
+    SDSVarInfo *var = var_or_die(sds, opts.name);
+
+    for (int i = 0; i < var->ndims; i++) {
+        esc_color(VALUE_COLOR);
+        printf("%u", (unsigned)var->dims[i]->size);
+        esc_stop();
+        fputs(opts.separator, stdout);
+    }
+    if (!opts.single_column)
+        puts("");
+}
+
 static void print_some_values(SDSType type, void *values, size_t count)
 {
     for (size_t u = 0;;) {
@@ -342,9 +370,12 @@ static const char *USAGE =
     "\n"
     "Options:\n"
     "  -1          output values in a single column (use newline instead of space\n"
-    "              as the separator).\n"
-    "  -G          always color the output.\n"
-    "  -h          print this help and exit.\n"
+    "              as the separator)\n"
+    "  -d          print dimension sizes in the same order as -ld lists them\n"
+    "  -dv VAR     print the given variable's dimensions in the same order as\n"
+    "              -ldv lists them\n"
+    "  -G          always color the output\n"
+    "  -h          print this help and exit\n"
     "  -la         list the global attributes in the file\n"
     "  -lav VAR    list the attributes for the given variable\n"
     "  -ld         list the dimensions in the file\n"
@@ -380,6 +411,13 @@ static void parse_arg(int argc, char **argv, int *ip)
     if (!strcmp(opt, "1")) { // single-column output mode
         opts.single_column = 1;
         opts.separator = "\n";
+    } else if (!strcmp(opt, "d")) { // list dim sizes
+        opts.out_type = LIST_DIM_SIZES;
+    } else if (!strcmp(opt, "dv")) { // list dim sizes for var
+        opts.out_type = LIST_VAR_DIM_SIZES;
+        if (++(*ip) >= argc)
+            usage(argv[0], "missing variable name");
+        opts.name = argv[*ip];
     } else if (!strcmp(opt, "G")) { // force color on
         opts.color = 1;
     } else if (!strcmp(opt, "h")) { // help
@@ -454,6 +492,12 @@ int main(int argc, char **argv)
         break;
     case LIST_VARS:
         print_list_vars(sds->vars);
+        break;
+    case LIST_DIM_SIZES:
+        print_dim_sizes(sds);
+        break;
+    case LIST_VAR_DIM_SIZES:
+        print_var_dim_sizes(sds);
         break;
     case PRINT_VAR:
         print_var_values(sds);
