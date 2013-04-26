@@ -504,7 +504,7 @@ void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
  */
 void *sds_read(SDSVarInfo *var, void **bufp)
 {
-    int *index = ALLOCA(int, var->ndims);
+    int *index = ALLOCA(int, (var->ndims < 1) ? 1 : var->ndims);
     for (int i = 0; i < var->ndims; i++) {
         index[i] = -1; // read all of this dimension
     }

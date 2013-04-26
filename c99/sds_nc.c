@@ -59,18 +59,26 @@ static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
 {
     int status;
 
-    size_t *start = ALLOCA(size_t, var->ndims);
-    size_t *count = ALLOCA(size_t, var->ndims);
+    int ndims = var->ndims;
+    if (ndims < 1) ndims = 1;
+    size_t *start = ALLOCA(size_t, ndims);
+    size_t *count = ALLOCA(size_t, ndims);
     size_t bufsize = sds_type_size(var->type);
-    for (int i = 0; i < var->ndims; i++) {
-        if (index[i] < 0) {
-            start[i] = 0;
-            count[i] = var->dims[i]->size;
-        } else {
-            start[i] = (size_t)index[i];
-            count[i] = 1;
+
+    if (var->ndims < 1) {
+        start[0] = 0;
+        count[0] = 1;
+    } else {
+        for (int i = 0; i < var->ndims; i++) {
+            if (index[i] < 0) {
+                start[i] = 0;
+                count[i] = var->dims[i]->size;
+            } else {
+                start[i] = (size_t)index[i];
+                count[i] = 1;
+            }
+            bufsize *= count[i];
         }
-        bufsize *= count[i];
     }
 
     NCBuffer *buf = (NCBuffer *)*bufp;
@@ -434,7 +442,7 @@ SDSInfo *open_nc_sds(const char *path)
         vi->iscoord = is_coord_var(sds->dims, buf);
         vi->ndims = nvdims;
         vi->id = ids[i];
-        vi->dims = NEWA(SDSDimInfo *, ndims);
+        vi->dims = (nvdims == 0) ? NULL : NEWA(SDSDimInfo *, ndims);
         map_dimids(vi, dimids, sds->dims);
 
 #if HAVE_NETCDF4
