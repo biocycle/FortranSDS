@@ -57,27 +57,42 @@ static int file_exists(const char *path)
  * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
  *        6 - cyan, 7 - white; 10 + any previous color turns on bold.
  */
-static void esc_color(int color)
+static void fesc_color(int color, FILE *fout)
 {
     if (opts.color) {
         if (color < 10) {
-            printf("\033[%im", 30 + color);
+            fprintf(fout, "\033[%im", 30 + color);
         } else {
-            printf("\033[%i;1m", 20 + color);
+            fprintf(fout, "\033[%i;1m", 20 + color);
         }
     }
 }
 
-static void esc_bold(void)
+static void esc_color(int color)
+{
+    fesc_color(color, stdout);
+}
+
+static void fesc_bold(FILE *fout)
 {
     if (opts.color)
-        fputs("\033[1m", stdout);
+        fputs("\033[1m", fout);
+}
+
+static void esc_bold(void)
+{
+    fesc_bold(stdout);
+}
+
+static void fesc_stop(FILE *fout)
+{
+    if (opts.color)
+        fputs("\033[0m", fout);
 }
 
 static void esc_stop(void)
 {
-    if (opts.color)
-        fputs("\033[0m", stdout);
+    fesc_stop(stdout);
 }
 
 static void print_type(SDSType type, int min_width)
@@ -258,7 +273,15 @@ static SDSVarInfo *var_or_die(SDSInfo *sds, const char *varname)
 {
     SDSVarInfo *var = sds_var_by_name(sds->vars, varname);
     if (!var) {
-        fprintf(stderr, "%s: no variable '%s' found\n", opts.infile, varname);
+        fesc_bold(stderr);
+        fputs(opts.infile, stderr);
+        fesc_stop(stderr);
+        fputs(": no variable '", stderr);
+        fesc_color(VARNAME_COLOR, stderr);
+        fputs(varname, stderr);
+        fesc_stop(stderr);
+        fputs("' found\n", stderr);
+
         exit(-3);
     }
     return var;
@@ -499,7 +522,10 @@ int main(int argc, char **argv)
 
     SDSInfo *sds = open_any_sds(opts.infile);
     if (!sds) {
-        printf("%s: error opening file\n", opts.infile);
+        fesc_bold(stderr);
+        fputs(opts.infile, stderr);
+        fesc_stop(stderr);
+        fputs(": error opening file\n", stderr);
         return -2;
     }
 
