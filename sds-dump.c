@@ -6,6 +6,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static const int TYPE_COLOR    = 16; // bright cyan
@@ -21,7 +23,6 @@ enum OutputType {
     LIST_VARS,
     LIST_ATTS,
     LIST_DIM_SIZES,
-    LIST_VAR_DIM_SIZES,
     PRINT_VAR
 };
 
@@ -31,10 +32,26 @@ struct OutOpts {
     int single_column;
     char *separator;
     enum OutputType out_type;
-    char *name; // dim, var, etc. to narrow output to
+    const char *name; // dim, var, etc. to narrow output to
 };
 
 static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY, NULL};
+
+#ifndef S_ISLNK
+#  define S_ISLNK(mode) (((mode) & S_IFLNK) != 0)
+#endif
+
+static int file_exists(const char *path)
+{
+    struct stat buf;
+    if (stat(path, &buf)) {
+        return 0; // error stat()ing so, not a file for our purposes
+    }
+    if ((S_ISREG(buf.st_mode) || S_ISLNK(buf.st_mode))) {
+        return 1;
+    }
+    return 0;
+}
 
 /* Print ANSI terminal color escape sequence.
  * Color: 0 - black, 1 - red, 2 - green, 3 - yellow, 4 - blue, 5 - dark magenta,
@@ -188,7 +205,7 @@ static void print_full_summary(SDSInfo *sds)
         print_atts(sds->gatts);
         puts("");
     } else {
-        puts("\nNo global attributes");
+        puts("\n - no global attributes -\n");
     }
 
     puts("Dimensions:");
@@ -369,19 +386,18 @@ static const char *USAGE =
     "by default.\n"
     "\n"
     "Options:\n"
-    "  -1          output values in a single column (use newline instead of space\n"
-    "              as the separator)\n"
-    "  -d          print dimension sizes in the same order as -ld lists them\n"
-    "  -dv VAR     print the given variable's dimensions in the same order as\n"
-    "              -ldv lists them\n"
+    "  -1          output values in a single column\n"
+    "  -d [VAR]    print dimension sizes for the whole file or the specified\n"
+    "              variable, if given\n"
+    "  -g          never color the output\n"
     "  -G          always color the output\n"
     "  -h          print this help and exit\n"
-    "  -la         list the global attributes in the file\n"
-    "  -lav VAR    list the attributes for the given variable\n"
-    "  -ld         list the dimensions in the file\n"
-    "  -ldv VAR    list the dimensions for thi given variable\n"
+    "  -la [VAR]   list the attributes in the file or for the specified\n"
+    "              variable if given\n"
+    "  -ld [VAR]   list the dimensions in the file or for the specified\n"
+    "              variable if given\n"
     "  -lv         list the variables in the file\n"
-    "  -v VAR      print the given variable's values\n"
+    "  -v VAR      print the specified variable's values\n"
 ;
 
 static void usage(const char *progname, const char *message, ...)
@@ -404,6 +420,23 @@ static void usage(const char *progname, const char *message, ...)
     exit(-1);
 }
 
+/* For command line options that take optional non-file-name arguments
+ * (typically variable names), return the name if given and NULL otherwise.
+ * Increments ip if the optional argument is found.
+ */
+static const char *get_optional_arg(int argc, char **argv, int *ip)
+{
+    if (*ip + 1 >= argc) {
+        return NULL; // past end of argv
+    }
+    char *arg = argv[*ip + 1];
+    if (arg[0] != '-' && !file_exists(arg)) {
+        (*ip)++;
+        return arg; // looks like a non-file argument!
+    }
+    return NULL;
+}
+
 static void parse_arg(int argc, char **argv, int *ip)
 {
     char *opt = argv[*ip]+1;
@@ -413,11 +446,9 @@ static void parse_arg(int argc, char **argv, int *ip)
         opts.separator = "\n";
     } else if (!strcmp(opt, "d")) { // list dim sizes
         opts.out_type = LIST_DIM_SIZES;
-    } else if (!strcmp(opt, "dv")) { // list dim sizes for var
-        opts.out_type = LIST_VAR_DIM_SIZES;
-        if (++(*ip) >= argc)
-            usage(argv[0], "missing variable name");
-        opts.name = argv[*ip];
+        opts.name = get_optional_arg(argc, argv, ip);
+    } else if (!strcmp(opt, "g")) { // force color off
+        opts.color = 0;
     } else if (!strcmp(opt, "G")) { // force color on
         opts.color = 1;
     } else if (!strcmp(opt, "h")) { // help
@@ -425,25 +456,17 @@ static void parse_arg(int argc, char **argv, int *ip)
         exit(0);
     } else if (!strcmp(opt, "la")) { // list atts
         opts.out_type = LIST_ATTS;
-    } else if (!strcmp(opt, "lav")) { // list atts for var
-        opts.out_type = LIST_ATTS;
-        if (++(*ip) >= argc)
-            usage(argv[0], "missing variable name");
-        opts.name = argv[*ip];
+        opts.name = get_optional_arg(argc, argv, ip);
     } else if (!strcmp(opt, "ld")) { // list dims
         opts.out_type = LIST_DIMS;
-    } else if (!strcmp(opt, "ldv")) { // list dims for var
-        opts.out_type = LIST_DIMS;
-        if (++(*ip) >= argc)
-            usage(argv[0], "missing variable name");
-        opts.name = argv[*ip];
+        opts.name = get_optional_arg(argc, argv, ip);
     } else if (!strcmp(opt, "lv")) { // list vars
         opts.out_type = LIST_VARS;
     } else if (!strcmp(opt, "v")) { // print var's values
         opts.out_type = PRINT_VAR;
-        if (++(*ip) >= argc)
-            usage(argv[0], "missing variable name");
-        opts.name = argv[*ip];
+        opts.name = get_optional_arg(argc, argv, ip);
+        if (!opts.name)
+            usage(argv[0], "missing variable name argument to -v");
     } else {
         usage(argv[0], "unrecognized command line option '%s'", argv[*ip]);
     }
@@ -494,10 +517,10 @@ int main(int argc, char **argv)
         print_list_vars(sds->vars);
         break;
     case LIST_DIM_SIZES:
-        print_dim_sizes(sds);
-        break;
-    case LIST_VAR_DIM_SIZES:
-        print_var_dim_sizes(sds);
+        if (opts.name)
+            print_var_dim_sizes(sds);
+        else
+            print_dim_sizes(sds);
         break;
     case PRINT_VAR:
         print_var_values(sds);
