@@ -10,12 +10,6 @@ automatically stop the program on error.  The module also has
 convenience routines to help you write
 [CF-compliant](http://cf-pcmdi.llnl.gov/) files.
 
-A secondary component of this project is a tool, nc2code, which will
-examine arbitrary NetCDF files and generate code to read them in one
-of several languages.  Incidentally, it uses a high level C wrapper to
-examine a NetCDf file which may prove useful if you are writing NetCDF
-handling code in C.
-
 
 Improved Error Handling and Reporting
 =====================================
